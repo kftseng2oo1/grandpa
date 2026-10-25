@@ -3,7 +3,7 @@
  *
  * 整合方式（貼進 arcar 的 Worker）：
  *   1. 把本檔的函式貼進 arcar（或 import { handleVoice } from './voice-route.js'）
- *   2. 在 fetch handler 最前面加：
+ *   2. 在 fetch handler 的「最前面」加（一定要在 arcar 全域 OPTIONS / CORS 處理之前）：
  *        if (url.pathname.startsWith('/voice')) return handleVoice(request, env);
  *   3. 設定 secret：
  *        wrangler secret put DASHSCOPE_API_KEY      （阿里雲 Model Studio 國際版 API Key）
@@ -12,7 +12,7 @@
  *        DASHSCOPE_BASE  預設 https://dashscope-intl.aliyuncs.com/api/v1  （新加坡區）
  *        VOICE_MODEL     預設 cosyvoice-v3-plus（新加坡區另有 cosyvoice-v3-flash，較便宜）
  *
- * API（全部 POST JSON）：
+ * API（全部 POST JSON，有設 VOICE_TOKEN 時每個請求都要帶 token 欄位）：
  *   /voice/clone   { audio: "data:audio/wav;base64,...", prefix?: "agong" } → { voice_id }
  *   /voice/status  { voice_id }                                           → { status }  OK / DEPLOYING / 其他=失敗
  *   /voice/tts     { voice_id, text }                                     → audio/mpeg 音檔
@@ -74,17 +74,21 @@ export async function handleVoice(request, env) {
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: voiceCors(allowed ? origin : '') });
   }
-  if (!allowed) return voiceJson({ error: '不允許的來源' }, 403, '');
+  // 被拒絕時也帶 CORS 標頭，App 才讀得到錯誤訊息（否則 Safari 只會顯示 Load failed）
+  if (!allowed) return voiceJson({ error: '不允許的來源：' + (origin || '(無)') }, 403, '*');
   if (request.method !== 'POST') return voiceJson({ error: '只接受 POST' }, 405, origin);
   if (!env.DASHSCOPE_API_KEY) return voiceJson({ error: 'arcar 尚未設定 DASHSCOPE_API_KEY' }, 500, origin);
-  if (env.VOICE_TOKEN && request.headers.get('X-Voice-Token') !== env.VOICE_TOKEN) {
-    return voiceJson({ error: '通行碼不對' }, 401, origin);
-  }
 
   const action = new URL(request.url).pathname.replace(/^\/voice\/?/, '').replace(/\/+$/, '');
   const model = env.VOICE_MODEL || 'cosyvoice-v3-plus';
   let body = {};
   try { body = await request.json(); } catch (e) { /* 空 body */ }
+
+  // 通行碼放在 JSON 的 token 欄位（不用自訂標頭，避開 CORS 預檢問題）；舊版標頭也接受
+  const token = body.token || request.headers.get('X-Voice-Token') || '';
+  if (env.VOICE_TOKEN && token !== env.VOICE_TOKEN) {
+    return voiceJson({ error: '通行碼不對' }, 401, origin);
+  }
 
   try {
     if (action === 'clone') {

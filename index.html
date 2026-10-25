@@ -601,7 +601,10 @@ var V=loadJSON('gs_voice',null);   /* {id, status, date} */
 function voiceReady(){return !!(V&&V.id&&V.status==='OK');}
 function vBase(){return String(S.voiceApi||'').replace(/\/+$/,'');}
 function vPost(path,body,asAudio){
-  return fetch(vBase()+'/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-Voice-Token':S.voiceToken||''},body:JSON.stringify(body)})
+  var payload={},k;for(k in body){if(body.hasOwnProperty(k))payload[k]=body[k];}
+  if(S.voiceToken)payload.token=S.voiceToken;
+  return fetch(vBase()+'/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)})
+  ['catch'](function(e){throw new Error('連不到聲音服務（'+(e&&e.message||'網路錯誤')+'）。請確認 arcar 已部署 /voice 路由');})
   .then(function(r){
     if(!r.ok){return r.json().then(function(j){throw new Error(j.error||('HTTP '+r.status));},function(){throw new Error('HTTP '+r.status);});}
     return asAudio?r.arrayBuffer():r.json();
