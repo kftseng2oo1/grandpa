@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="阿公說故事">
+<meta name="theme-color" content="#7a4a22">
+<title>阿公說故事</title>
+<link rel="manifest" id="mf">
+<link rel="apple-touch-icon" id="ati">
+<style>
+:root{
+  --bg:#fbf4e6;--paper:#fffaf0;--ink:#3b2614;--soft:#7a5a3c;--brown:#7a4a22;
+  --orange:#e07a2e;--orange2:#f4a259;--red:#d64541;--green:#3f8f5a;--line:#ead9bd;
+  --shadow:0 3px 10px rgba(90,55,20,.12);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;font-size:20px;line-height:1.6}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:none;border-radius:16px}
+.hidden{display:none!important}
+header.top{position:sticky;top:0;z-index:5;background:var(--brown);color:#fff;padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;font-size:24px;font-weight:700;letter-spacing:2px;text-align:center}
+header.top small{display:block;font-size:15px;font-weight:400;opacity:.85;letter-spacing:0}
+main{padding:16px 16px calc(110px + env(safe-area-inset-bottom))}
+h2{font-size:22px;margin:8px 0 12px;color:var(--brown)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{background:var(--paper);border:2px solid var(--line);border-radius:20px;padding:16px 12px;text-align:center;box-shadow:var(--shadow);min-height:132px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.card .em{font-size:46px;line-height:1.1}
+.card .tt{font-size:21px;font-weight:700;margin-top:6px}
+.card .sub{font-size:14px;color:var(--soft)}
+.card.free{background:#fff3e3;border-color:var(--orange2)}
+.card.mine{border-color:#c9dcc2;background:#f6fbf2}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:#fff;border-top:2px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs button{flex:1;background:none;border-radius:0;padding:8px 0 10px;font-size:15px;color:var(--soft)}
+nav.tabs button b{display:block;font-size:28px;line-height:1.2}
+nav.tabs button.on{color:var(--brown);font-weight:700;background:#fdf0dc}
+.btn{display:block;width:100%;padding:16px;font-size:22px;font-weight:700;background:var(--orange);color:#fff;box-shadow:var(--shadow)}
+.btn.sec{background:#efe2cc;color:var(--ink)}
+.btn.green{background:var(--green)}
+.btn:disabled{opacity:.5}
+label.f{display:block;font-weight:700;margin:16px 0 6px;color:var(--brown)}
+input[type=text],input[type=number],input[type=url],textarea,select{width:100%;padding:14px;border:2px solid var(--line);border-radius:14px;background:#fff;font-size:20px}
+textarea{min-height:90px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:10px 14px;background:#fff;border:2px solid var(--line);border-radius:999px;font-size:18px}
+.chip.on{background:var(--orange);border-color:var(--orange);color:#fff}
+.hint{font-size:15px;color:var(--soft);margin-top:6px}
+
+/* 讀故事畫面 */
+#v-read{position:fixed;inset:0;z-index:20;background:var(--paper);display:flex;flex-direction:column}
+.rhead{display:flex;align-items:center;gap:8px;background:var(--brown);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px}
+.rhead button{background:rgba(255,255,255,.18);color:#fff;padding:10px 14px;font-size:18px}
+.rhead .rt{flex:1;text-align:center;font-size:21px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.recbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff3e3;border-bottom:2px solid var(--line)}
+#recBtn{flex:1;padding:14px;font-size:22px;font-weight:700;background:var(--red);color:#fff}
+#recBtn.on{animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(214,69,65,.6)}50%{box-shadow:0 0 0 10px rgba(214,69,65,0)}}
+#recTime{min-width:76px;text-align:center;font-size:22px;font-variant-numeric:tabular-nums;color:var(--red);font-weight:700}
+#ttsBtn{background:#efe2cc;padding:14px 12px;font-size:20px}
+.pwrap{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:22px 20px}
+#paraBox{font-size:30px;line-height:1.75;letter-spacing:1px;white-space:pre-wrap}
+#paraBox textarea{font-size:inherit;min-height:50vh;line-height:1.6}
+#paraNum{text-align:center;color:var(--soft);font-size:17px;padding:4px 0}
+.pnav{display:flex;gap:10px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));background:#fff;border-top:2px solid var(--line)}
+.pnav button{flex:1;padding:18px 0;font-size:24px;font-weight:700;background:#efe2cc}
+.pnav button.next{background:var(--orange);color:#fff;flex:1.4}
+#savePanel{position:fixed;inset:0;z-index:30;background:rgba(40,25,10,.55);display:flex;align-items:flex-end}
+#savePanel .sheet{width:100%;background:var(--paper);border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+#savePanel .row{display:flex;gap:10px;margin-top:14px}
+#savePanel .row button{flex:1}
+
+/* 錄音清單 */
+.rec{background:var(--paper);border:2px solid var(--line);border-radius:20px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.rec .h{display:flex;align-items:center;gap:10px}
+.rec .h .em{font-size:40px}
+.rec .h .t{flex:1;font-size:21px;font-weight:700;line-height:1.35}
+.rec .h .t small{display:block;font-size:15px;font-weight:400;color:var(--soft)}
+.rec .acts{display:flex;gap:8px;margin-top:12px}
+.rec .acts button{padding:14px 10px;font-size:19px;font-weight:700}
+.rec .play{flex:2;background:var(--green);color:#fff}
+.rec .play.on{background:var(--orange)}
+.rec .share{flex:1.3;background:#06c755;color:#fff}
+.rec .del{flex:.8;background:#efe2cc}
+.rec .del.warn{background:var(--red);color:#fff;flex:1.6;font-size:16px}
+.empty{text-align:center;color:var(--soft);padding:40px 10px}
+.empty .em{font-size:60px}
+#toast{position:fixed;left:50%;bottom:calc(120px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(50,30,10,.92);color:#fff;padding:14px 22px;border-radius:999px;font-size:19px;z-index:50;max-width:88%;text-align:center;opacity:0;transition:opacity .25s;pointer-events:none}
+#toast.show{opacity:1}
+.loading{text-align:center;padding:26px;font-size:20px;color:var(--brown)}
+.loading .em{font-size:50px;display:inline-block;animation:bob 1s infinite}
+@keyframes bob{50%{transform:translateY(-8px)}}
+.rng{display:flex;align-items:center;gap:12px}
+.rng input{flex:1}
+.preview{background:var(--paper);border:2px dashed var(--line);border-radius:14px;padding:12px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header class="top">📖 阿公說故事<small id="subTitle">講給乖孫聽</small></header>
+
+<main>
+  <!-- 故事書 -->
+  <section id="v-lib">
+    <h2>挑一個故事來講</h2>
+    <div class="grid" id="libGrid"></div>
+  </section>
+
+  <!-- 編新故事 -->
+  <section id="v-ai" class="hidden">
+    <h2>✨ 幫阿公編新故事</h2>
+    <label class="f">想講什麼？（可以選好幾個）</label>
+    <div class="chips" id="themeChips"></div>
+    <label class="f">還有什麼要加的？（可以不填）</label>
+    <textarea id="aiExtra" placeholder="例如：今天他不肯刷牙、明天要第一次上幼稚園、我們家的狗叫小黑…"></textarea>
+    <label class="f">故事長度</label>
+    <select id="aiLen">
+      <option value="5">短短的（大約 2 分鐘）</option>
+      <option value="8" selected>剛剛好（大約 4 分鐘）</option>
+      <option value="12">長一點（睡前慢慢講）</option>
+    </select>
+    <div style="height:18px"></div>
+    <button class="btn" id="aiGo">✨ 編一個故事</button>
+    <div id="aiOut"></div>
+  </section>
+
+  <!-- 錄音 -->
+  <section id="v-rec" class="hidden">
+    <h2>🎧 阿公錄好的故事</h2>
+    <div id="recList"></div>
+  </section>
+
+  <!-- 設定 -->
+  <section id="v-set" class="hidden">
+    <h2>⚙️ 設定</h2>
+    <label class="f">孫子怎麼叫？</label>
+    <input type="text" id="setName" placeholder="例如：小寶、阿弟、乖孫">
+    <div class="hint">故事裡會用這個名字叫他</div>
+    <label class="f">孫子幾歲？</label>
+    <input type="number" id="setAge" min="1" max="15" inputmode="numeric">
+    <label class="f">故事字的大小</label>
+    <div class="rng"><span>小</span><input type="range" id="setFont" min="22" max="48" step="2"><span style="font-size:30px">大</span></div>
+    <div class="preview" id="fontPrev">從前從前，森林裡有一隻兔子…</div>
+    <label class="f">AI 編故事網址</label>
+    <input type="url" id="setApi" autocapitalize="off" autocorrect="off">
+    <div class="hint">送出 Anthropic messages 格式（model / max_tokens / messages）</div>
+    <div style="height:18px"></div>
+    <button class="btn green" id="setSave">儲存設定</button>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-tab="lib" class="on"><b>📖</b>故事書</button>
+  <button data-tab="ai"><b>✨</b>編新故事</button>
+  <button data-tab="rec"><b>🎧</b>錄好的</button>
+  <button data-tab="set"><b>⚙️</b>設定</button>
+</nav>
+
+<!-- 講故事畫面 -->
+<div id="v-read" class="hidden">
+  <div class="rhead">
+    <button id="rBack">← 回去</button>
+    <div class="rt" id="rTitle"></div>
+    <button id="rDel" class="hidden">刪除</button>
+  </div>
+  <div class="recbar">
+    <button id="recBtn">🎙️ 開始錄音</button>
+    <div id="recTime">00:00</div>
+    <button id="ttsBtn" title="手機念這段">🔊</button>
+  </div>
+  <div class="pwrap" id="pwrap"><div id="paraBox"></div></div>
+  <div id="paraNum"></div>
+  <div class="pnav">
+    <button id="pPrev">◀ 上一段</button>
+    <button id="pNext" class="next">下一段 ▶</button>
+  </div>
+</div>
+
+<div id="savePanel" class="hidden">
+  <div class="sheet">
+    <h2 style="margin-top:0">🎉 講完了！要存起來嗎？</h2>
+    <label class="f" style="margin-top:4px">這段錄音叫什麼？</label>
+    <input type="text" id="saveTitle">
+    <div class="hint" id="saveInfo"></div>
+    <div class="row">
+      <button class="btn sec" id="saveNo">不要，重講</button>
+      <button class="btn green" id="saveYes">存起來</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ========== 內建故事（{name} 會換成孫子名字） ========== */
+var STORIES = [
+ {id:'s1',emoji:'🐢',title:'龜兔賽跑',paras:[
+  '{name}，阿公今天來講一個賽跑的故事喔。',
+  '從前從前，森林裡有一隻兔子，跑得非常快。牠最喜歡笑烏龜：「你走路慢吞吞，好像在散步！」',
+  '烏龜沒有生氣，慢慢地說：「那我們來比賽，看誰先跑到山頂那棵大榕樹。」',
+  '比賽一開始，兔子咻——一下就不見了。牠回頭一看，烏龜還在起點附近，就想：「我先睡個午覺好了。」',
+  '烏龜呢？一步、一步、一步，都沒有停下來。太陽好大，牠擦擦汗，繼續走。',
+  '等兔子睡醒，揉揉眼睛——哎呀！烏龜已經快到大榕樹了！兔子拚命追，可是來不及了。',
+  '{name}你看，跑得快不一定會贏。認真、不放棄的人，才會走到終點喔。'
+ ]},
+ {id:'s2',emoji:'🐺',title:'狼來了',paras:[
+  '{name}，這個故事是講一個很愛開玩笑的放羊小孩。',
+  '山坡上有一個小男孩，每天在顧羊。他覺得好無聊，就大喊：「狼來了！狼來了！」',
+  '村子裡的大人聽到，拿著鋤頭、扁擔趕快跑上山。結果哪有狼？小男孩笑得在地上滾來滾去。',
+  '過了幾天，他又喊一次。大人們又氣喘吁吁跑上來，又被騙了，大家都很生氣地下山。',
+  '有一天，狼真的來了！小男孩嚇得大叫：「狼來了！這次是真的啦！」',
+  '可是村子裡的人說：「又在騙人了。」沒有一個人上山，羊都被狼趕跑了。',
+  '所以{name}要記得，說話要誠實，大家才會相信你喔。'
+ ]},
+ {id:'s3',emoji:'🍐',title:'孔融讓梨',paras:[
+  '{name}，阿公講一個很久很久以前的小朋友，他叫孔融，跟你差不多大。',
+  '有一天，有人送來一盤梨子，又香又甜。爸爸說：「孔融，你先拿。」',
+  '孔融看了看，挑了最小的一顆。爸爸好奇問他：「大的不是比較好吃嗎？」',
+  '孔融說：「哥哥比我大，應該吃大的；弟弟比我小，我要照顧他，也給他大的。」',
+  '爸爸聽了好高興，摸摸他的頭說：「你真是個懂事的好孩子。」',
+  '{name}，有好吃的東西，記得先想到家裡的人，大家都會很喜歡你喔。'
+ ]},
+ {id:'s4',emoji:'🏺',title:'司馬光砸缸',paras:[
+  '{name}，這個故事的小主角叫司馬光，他很冷靜、很聰明。',
+  '有一天，司馬光跟朋友在院子裡玩捉迷藏。院子裡有一個好大好大的水缸，裝滿了水。',
+  '有一個小朋友爬上去玩，一不小心——撲通！掉進水缸裡了！',
+  '大家都嚇壞了，有的哭，有的跑去叫大人。水缸太高，誰也拉不到他。',
+  '司馬光沒有慌。他撿起一塊大石頭，用力往水缸砸過去——砰！',
+  '水缸破了一個洞，水嘩啦啦流出來，掉下去的小朋友得救了！',
+  '{name}，遇到事情先不要慌，停下來想一想，就會想到好辦法。不過要記得，危險的地方不可以自己去玩喔。'
+ ]},
+ {id:'s5',emoji:'🐯',title:'虎姑婆',paras:[
+  '{name}，這是阿公小時候，大人講給阿公聽的故事，叫做「虎姑婆」。',
+  '從前山腳下住著一對姊弟。有一天晚上，爸爸媽媽要出門，交代他們：「誰來敲門都不可以開喔。」',
+  '半夜，叩、叩、叩，有人敲門：「我是你們的姑婆啦，快開門給我進去。」聲音沙沙啞啞的。',
+  '弟弟一開門，進來一個包著頭巾的老婆婆。姊姊偷偷一看——咦？她的手怎麼毛茸茸的？原來是老虎變的虎姑婆！',
+  '姊姊很聰明，說：「姑婆，我們要去上廁所。」就牽著弟弟偷偷溜出去，爬到門口的大樹上。',
+  '虎姑婆追出來，在樹下轉來轉去。姊姊用力大喊：「阿爸阿母回來了！還帶了好多人！」',
+  '虎姑婆嚇一大跳，夾著尾巴逃回山裡，再也不敢來了。',
+  '{name}要記得：大人不在家，陌生人敲門不要開。遇到危險要想辦法，趕快找大人幫忙喔。'
+ ]},
+ {id:'s6',emoji:'🐜',title:'螞蟻與蚱蜢',paras:[
+  '{name}，夏天的草地上，住著一群螞蟻，還有一隻蚱蜢。',
+  '螞蟻每天排好隊搬食物，一粒米、一顆豆，慢慢搬回洞裡。',
+  '蚱蜢在旁邊唱歌跳舞：「天氣這麼好，幹嘛那麼辛苦？來玩啦！」',
+  '螞蟻說：「冬天來了就找不到東西吃，要先準備。」蚱蜢哈哈大笑，繼續玩。',
+  '冬天到了，北風呼呼吹，草都枯了。蚱蜢又冷又餓，跑去敲螞蟻的門。',
+  '螞蟻說：「你看吧，夏天要先準備呀。」可是還是開門，分給牠一碗熱熱的湯。蚱蜢說：「明年我也要跟你們一起認真。」',
+  '{name}，該做的事先做好，玩起來才安心；有人需要幫忙，也要伸出手喔。'
+ ]},
+ {id:'s7',emoji:'🧨',title:'年獸的故事',paras:[
+  '{name}，你知道過年為什麼要貼紅紅的春聯、放鞭炮嗎？阿公講給你聽。',
+  '很久很久以前，海裡住著一隻怪獸叫做「年」。牠頭上長角，每到一年最後一個晚上，就跑上岸來搗蛋。',
+  '大家都好怕，每年那天晚上，全村的人都躲到山上去。',
+  '有一年，村子裡來了一位白鬍子老公公，他說：「我留下來，把年趕走。」',
+  '半夜，年獸來了。牠看到門口貼著紅紙、點著亮亮的燈火，又聽到劈哩啪啦的爆竹聲，嚇得轉頭就跑！',
+  '原來年獸最怕紅色、火光和很大的聲音。從那以後，大家過年都貼春聯、點燈、放鞭炮。',
+  '{name}，過年的時候記得來給阿公拜年喔，阿公準備紅包等你！'
+ ]},
+ {id:'s8',emoji:'⛰️',title:'愚公移山',paras:[
+  '{name}，從前有一個老阿公叫愚公，他家門口有兩座好大好大的山，出門都要繞好遠好遠。',
+  '愚公說：「我們全家一起來把山搬走！」大家就拿鋤頭、扛畚箕，一擔一擔地挖。',
+  '隔壁有個人笑他：「你都九十歲了，挖到老也挖不完啦！」',
+  '愚公笑笑說：「我挖不完，還有我兒子；兒子挖不完，還有孫子；孫子又會有孫子。山不會再長高，總有一天會挖完。」',
+  '天上的神仙聽到了，很感動，就派兩個大力士，把兩座山搬走了。',
+  '{name}，再難的事情，只要每天做一點、不放棄，就會成功喔。'
+ ]}
+];
+
+var THEMES = ['勇敢','分享','誠實','刷牙洗澡','乖乖睡覺','好好吃飯','動物','恐龍','台灣古早味','阿公小時候','交朋友','不怕黑'];
+
+/* ========== 小工具 ========== */
+function $(id){return document.getElementById(id);}
+function loadJSON(k,d){try{var v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}}
+function saveJSON(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var toastT=null;
+function toast(msg){var t=$('toast');t.textContent=msg;t.className='show';clearTimeout(toastT);toastT=setTimeout(function(){t.className='';},2600);}
+function mmss(sec){sec=Math.max(0,Math.round(sec));var m=Math.floor(sec/60),s=sec%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;}
+function fmtDate(ts){var d=new Date(ts);return (d.getMonth()+1)+'/'+d.getDate()+' '+(d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();}
+
+var S = loadJSON('gs_set',{name:'乖孫',age:5,font:30,api:'https://arcar.kftseng2oo1.workers.dev/claude'});
+var CUSTOM = loadJSON('gs_custom',[]);
+function nm(t){return String(t).replace(/\{name\}/g,S.name||'乖孫');}
+function allStories(){return CUSTOM.concat(STORIES);}
+function findStory(id){var a=allStories();for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i];}return null;}
+
+/* ========== 圖示 / manifest ========== */
+(function(){
+  try{
+    var c=document.createElement('canvas');c.width=c.height=512;var x=c.getContext('2d');
+    x.fillStyle='#7a4a22';x.fillRect(0,0,512,512);
+    x.fillStyle='#fbf4e6';x.beginPath();x.arc(256,256,200,0,Math.PI*2);x.fill();
+    x.font='240px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('👴',256,250);
+    var url=c.toDataURL('image/png');
+    $('ati').href=url;
+    var m={name:'阿公說故事',short_name:'阿公說故事',start_url:location.href.split('#')[0],display:'standalone',background_color:'#fbf4e6',theme_color:'#7a4a22',icons:[{src:url,sizes:'512x512',type:'image/png'}]};
+    $('mf').href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(m));
+  }catch(e){}
+})();
+
+/* ========== 分頁 ========== */
+var tabBtns=document.querySelectorAll('nav.tabs button');
+function showTab(name){
+  for(var i=0;i<tabBtns.length;i++){tabBtns[i].className=tabBtns[i].getAttribute('data-tab')===name?'on':'';}
+  ['lib','ai','rec','set'].forEach(function(n){$('v-'+n).className=n===name?'':'hidden';});
+  if(name==='lib')renderLib();
+  if(name==='rec')renderRecs();
+  if(name==='set')fillSet();
+  window.scrollTo(0,0);
+}
+for(var i=0;i<tabBtns.length;i++){
+  tabBtns[i].addEventListener('click',function(){stopPlay();showTab(this.getAttribute('data-tab'));});
+}
+function updSub(){$('subTitle').textContent='講給'+(S.name||'乖孫')+'聽';}
+
+/* ========== 故事書 ========== */
+function renderLib(){
+  var h='<button class="card free" data-id="__free"><div class="em">🎙️</div><div class="tt">自己講</div><div class="sub">講阿公小時候的事</div></button>';
+  CUSTOM.forEach(function(s){h+='<button class="card mine" data-id="'+esc(s.id)+'"><div class="em">'+esc(s.emoji||'✨')+'</div><div class="tt">'+esc(s.title)+'</div><div class="sub">阿公編的</div></button>';});
+  STORIES.forEach(function(s){h+='<button class="card" data-id="'+s.id+'"><div class="em">'+s.emoji+'</div><div class="tt">'+s.title+'</div><div class="sub">'+s.paras.length+' 段</div></button>';});
+  $('libGrid').innerHTML=h;
+}
+$('libGrid').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('.card'):null;if(!b)return;
+  var id=b.getAttribute('data-id');
+  if(id==='__free'){openStory({id:'__free',emoji:'🎙️',title:'阿公小時候',free:true,paras:['']});return;}
+  var s=findStory(id);if(s)openStory(s);
+});
+
+/* ========== 講故事畫面 ========== */
+var cur=null, pIdx=0, wakeLock=null;
+function openStory(s){
+  cur=s;pIdx=0;
+  $('rTitle').textContent=(s.emoji||'')+' '+s.title;
+  $('rDel').className=(s.custom?'':'hidden');$('rDel').textContent='刪除';delArm=false;
+  $('v-read').className='';
+  document.body.style.overflow='hidden';
+  renderPara();
+  try{if(navigator.wakeLock){navigator.wakeLock.request('screen').then(function(w){wakeLock=w;})['catch'](function(){});}}catch(e){}
+}
+function closeStory(){
+  if(rec&&rec.state==='recording'){toast('先按「停止錄音」喔');return;}
+  stopTTS();
+  $('v-read').className='hidden';document.body.style.overflow='';
+  try{if(wakeLock){wakeLock.release();wakeLock=null;}}catch(e){}
+  cur=null;
+}
+function renderPara(){
+  var box=$('paraBox');box.style.fontSize=S.font+'px';
+  if(cur.free){
+    box.innerHTML='<div style="font-size:22px;color:#7a5a3c;margin-bottom:10px">不用看稿，按上面紅色按鈕就開始錄。<br>可以講講：阿公小時候住哪裡？玩什麼？第一次看到'+esc(S.name||'乖孫')+'的時候…</div><textarea id="freeNote" placeholder="（想先寫幾個重點提醒自己，可以寫在這裡）"></textarea>';
+    $('paraNum').textContent='';$('pPrev').disabled=true;$('pNext').disabled=true;$('ttsBtn').className='hidden';
+    return;
+  }
+  $('ttsBtn').className='';
+  box.textContent=nm(cur.paras[pIdx]);
+  $('paraNum').textContent='第 '+(pIdx+1)+' 段 / 共 '+cur.paras.length+' 段';
+  $('pPrev').disabled=pIdx===0;
+  $('pNext').disabled=false;
+  $('pNext').textContent=pIdx===cur.paras.length-1?'講完了 ✓':'下一段 ▶';
+  $('pwrap').scrollTop=0;
+}
+$('rBack').addEventListener('click',closeStory);
+$('pPrev').addEventListener('click',function(){if(pIdx>0){stopTTS();pIdx--;renderPara();}});
+$('pNext').addEventListener('click',function(){
+  stopTTS();
+  if(pIdx<cur.paras.length-1){pIdx++;renderPara();}
+  else if(rec&&rec.state==='recording'){stopRec();}
+  else{toast('講完了！'+(S.name||'乖孫')+'一定很愛聽 ❤️');}
+});
+var delArm=false,delT=null;
+$('rDel').addEventListener('click',function(){
+  if(!delArm){delArm=true;this.textContent='再按一次';var b=this;clearTimeout(delT);delT=setTimeout(function(){delArm=false;b.textContent='刪除';},3000);return;}
+  var id=cur.id;CUSTOM=CUSTOM.filter(function(s){return s.id!==id;});saveJSON('gs_custom',CUSTOM);
+  closeStory();renderLib();toast('故事刪掉了');
+});
+
+/* 手機念（TTS） */
+function stopTTS(){try{if(window.speechSynthesis)speechSynthesis.cancel();}catch(e){}}
+$('ttsBtn').addEventListener('click',function(){
+  if(!window.speechSynthesis){toast('這支手機不能念');return;}
+  if(rec&&rec.state==='recording'){toast('錄音中先不要用喔');return;}
+  stopTTS();
+  var u=new SpeechSynthesisUtterance(nm(cur.paras[pIdx]));u.lang='zh-TW';u.rate=0.9;
+  var vs=speechSynthesis.getVoices();for(var i=0;i<vs.length;i++){if(/zh[-_]TW/i.test(vs[i].lang)){u.voice=vs[i];break;}}
+  speechSynthesis.speak(u);
+});
+
+/* ========== 錄音 ========== */
+var rec=null,stream=null,chunks=[],recMime='',recStart=0,recTimer=null,pending=null;
+function pickMime(){
+  if(!window.MediaRecorder||!MediaRecorder.isTypeSupported)return '';
+  var c=['audio/mp4','audio/aac','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'];
+  for(var i=0;i<c.length;i++){if(MediaRecorder.isTypeSupported(c[i]))return c[i];}
+  return '';
+}
+function startRec(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){toast('這支手機不支援錄音，請更新系統');return;}
+  stopTTS();
+  navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(s){
+    stream=s;var mt=pickMime();
+    try{rec=mt?new MediaRecorder(s,{mimeType:mt}):new MediaRecorder(s);}catch(e){rec=new MediaRecorder(s);}
+    recMime=(rec.mimeType||mt||'audio/mp4').split(';')[0];
+    chunks=[];
+    rec.addEventListener('dataavailable',function(e){if(e.data&&e.data.size)chunks.push(e.data);});
+    rec.addEventListener('stop',onRecStop);
+    rec.start(1000);
+    recStart=Date.now();
+    $('recBtn').className='on';$('recBtn').textContent='⏹ 停止錄音';
+    recTimer=setInterval(function(){$('recTime').textContent=mmss((Date.now()-recStart)/1000);},500);
+  })['catch'](function(){toast('沒有麥克風權限，請到設定打開');});
+}
+function stopRec(){if(rec&&rec.state!=='inactive')rec.stop();}
+function onRecStop(){
+  clearInterval(recTimer);
+  var dur=(Date.now()-recStart)/1000;
+  try{stream.getTracks().forEach(function(t){t.stop();});}catch(e){}
+  $('recBtn').className='';$('recBtn').textContent='🎙️ 開始錄音';$('recTime').textContent='00:00';
+  if(dur<2||!chunks.length){toast('太短了，再講一次');return;}
+  pending={blob:new Blob(chunks,{type:recMime}),dur:dur};
+  var t=cur.free?'阿公小時候的故事':cur.title;
+  $('saveTitle').value=t;
+  $('saveInfo').textContent='錄了 '+mmss(dur);
+  $('savePanel').className='';
+}
+$('recBtn').addEventListener('click',function(){if(rec&&rec.state==='recording')stopRec();else startRec();});
+$('saveNo').addEventListener('click',function(){pending=null;$('savePanel').className='hidden';if(cur&&!cur.free){pIdx=0;renderPara();}});
+$('saveYes').addEventListener('click',function(){
+  if(!pending)return;var btn=this;btn.disabled=true;
+  var fr=new FileReader();
+  fr.onload=function(){
+    var o={id:String(Date.now()),title:$('saveTitle').value.trim()||'阿公講的故事',emoji:cur.emoji||'📖',date:Date.now(),dur:pending.dur,type:recMime,buf:fr.result};
+    recPut(o,function(){
+      btn.disabled=false;pending=null;$('savePanel').className='hidden';
+      toast('存好了！到「錄好的」可以播給'+(S.name||'乖孫')+'聽');
+    },function(){btn.disabled=false;});
+  };
+  fr.onerror=function(){btn.disabled=false;toast('存檔失敗');};
+  fr.readAsArrayBuffer(pending.blob);
+});
+
+/* ========== IndexedDB（存 ArrayBuffer，iOS 較穩） ========== */
+var db=null;
+function idb(cb,fail){
+  if(db)return cb(db);
+  if(!window.indexedDB){toast('這支手機不能存錄音');fail&&fail();return;}
+  var r=indexedDB.open('grandpa-story',1);
+  r.onupgradeneeded=function(){if(!r.result.objectStoreNames.contains('recs'))r.result.createObjectStore('recs',{keyPath:'id'});};
+  r.onsuccess=function(){db=r.result;cb(db);};
+  r.onerror=function(){toast('無法開啟儲存空間');fail&&fail();};
+}
+function recPut(o,ok,fail){idb(function(d){var tx=d.transaction('recs','readwrite');tx.objectStore('recs').put(o);tx.oncomplete=function(){ok&&ok();};tx.onerror=function(){toast('儲存失敗，手機空間可能不夠');fail&&fail();};},fail);}
+function recAll(cb){idb(function(d){var out=[];var q=d.transaction('recs','readonly').objectStore('recs').openCursor();q.onsuccess=function(){var c=q.result;if(c){out.push(c.value);c['continue']();}else{out.sort(function(a,b){return b.date-a.date;});cb(out);}};q.onerror=function(){cb([]);};},function(){cb([]);});}
+function recDel(id,cb){idb(function(d){var tx=d.transaction('recs','readwrite');tx.objectStore('recs')['delete'](id);tx.oncomplete=function(){cb&&cb();};});}
+
+/* ========== 錄好的清單 ========== */
+var RECS=[],playing=null,audio=null,audioUrl=null;
+function renderRecs(){
+  recAll(function(list){
+    RECS=list;
+    if(!list.length){$('recList').innerHTML='<div class="empty"><div class="em">🎙️</div>還沒有錄音喔<br>到「故事書」挑一個故事<br>按紅色按鈕開始講</div>';return;}
+    var h='';
+    list.forEach(function(o){
+      h+='<div class="rec" data-id="'+o.id+'"><div class="h"><div class="em">'+esc(o.emoji||'📖')+'</div><div class="t">'+esc(o.title)+'<small>'+fmtDate(o.date)+'・'+mmss(o.dur)+'</small></div></div>'+
+         '<div class="acts"><button class="play" data-act="play">▶️ 播放</button><button class="share" data-act="share">傳 LINE</button><button class="del" data-act="del">🗑</button></div></div>';
+    });
+    $('recList').innerHTML=h;
+  });
+}
+function getRec(id){for(var i=0;i<RECS.length;i++){if(RECS[i].id===id)return RECS[i];}return null;}
+function extOf(t){return /mp4|aac|m4a/.test(t)?'.m4a':/webm/.test(t)?'.webm':/ogg/.test(t)?'.ogg':'.m4a';}
+function stopPlay(){
+  if(audio){try{audio.pause();}catch(e){}}
+  if(audioUrl){try{URL.revokeObjectURL(audioUrl);}catch(e){}}
+  audio=null;audioUrl=null;
+  if(playing){var b=document.querySelector('.rec[data-id="'+playing+'"] .play');if(b){b.className='play';b.textContent='▶️ 播放';}}
+  playing=null;
+}
+$('recList').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;if(!b)return;
+  var card=b.closest('.rec');var id=card.getAttribute('data-id');var o=getRec(id);if(!o)return;
+  var act=b.getAttribute('data-act');
+  if(act==='play'){
+    if(playing===id){stopPlay();return;}
+    stopPlay();
+    audioUrl=URL.createObjectURL(new Blob([o.buf],{type:o.type}));
+    audio=new Audio(audioUrl);playing=id;
+    b.className='play on';b.textContent='⏸ 暫停';
+    audio.addEventListener('ended',stopPlay);
+    var p=audio.play();if(p&&p['catch'])p['catch'](function(){stopPlay();toast('播放失敗');});
+  }else if(act==='share'){
+    var blob=new Blob([o.buf],{type:o.type});
+    var fname=o.title.replace(/[\\\/:*?"<>|]/g,'')+extOf(o.type);
+    var file=null;try{file=new File([blob],fname,{type:o.type});}catch(err){}
+    var txt='阿公講故事給'+(S.name||'乖孫')+'聽 ❤️《'+o.title+'》';
+    if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:o.title,text:txt})['catch'](function(){});
+    }else{
+      var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();
+      setTimeout(function(){URL.revokeObjectURL(a.href);a.parentNode.removeChild(a);},1500);
+      toast('已下載，可以從檔案傳到 LINE');
+    }
+  }else if(act==='del'){
+    if(b.className.indexOf('warn')<0){
+      b.className='del warn';b.textContent='再按一次刪除';
+      setTimeout(function(){if(b.parentNode){b.className='del';b.textContent='🗑';}},3000);
+      return;
+    }
+    if(playing===id)stopPlay();
+    recDel(id,function(){toast('刪掉了');renderRecs();});
+  }
+});
+
+/* ========== AI 編故事 ========== */
+var pickedThemes=[];
+(function(){
+  var h='';THEMES.forEach(function(t){h+='<button class="chip" data-t="'+t+'">'+t+'</button>';});
+  $('themeChips').innerHTML=h;
+})();
+$('themeChips').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('.chip'):null;if(!b)return;
+  var t=b.getAttribute('data-t'),i=pickedThemes.indexOf(t);
+  if(i<0){pickedThemes.push(t);b.className='chip on';}else{pickedThemes.splice(i,1);b.className='chip';}
+});
+function extractText(d){
+  if(d==null)return '';
+  if(typeof d==='string')return d;
+  if(d.content&&d.content.length){var s='';for(var i=0;i<d.content.length;i++){if(d.content[i].text)s+=d.content[i].text;}if(s)return s;}
+  if(d.candidates&&d.candidates[0]&&d.candidates[0].content){try{return d.candidates[0].content.parts.map(function(p){return p.text||'';}).join('');}catch(e){}}
+  if(d.text)return d.text;
+  if(d.result)return extractText(d.result);
+  if(d.data)return extractText(d.data);
+  return JSON.stringify(d);
+}
+$('aiGo').addEventListener('click',function(){
+  var btn=this;
+  if(!S.api){toast('請先到設定填 AI 網址');return;}
+  var n=parseInt($('aiLen').value,10)||8;
+  var themes=pickedThemes.length?pickedThemes.join('、'):'溫馨有趣';
+  var extra=$('aiExtra').value.trim();
+  var prompt='請用台灣阿公講故事給孫子聽的口吻，寫一個適合「念出來」的原創兒童故事。\n'+
+    '孫子約 '+(S.age||5)+' 歲。主題：'+themes+'。'+(extra?'\n補充：'+extra:'')+'\n'+
+    '要求：\n- 繁體中文、台灣日常用語，句子短、口語、溫暖有趣，多用狀聲詞。\n'+
+    '- 提到孫子的名字時一律寫成 {name}（大括號原樣保留），全篇大約叫 2～3 次，例如「{name}你猜怎麼了？」。\n'+
+    '- 共 '+n+' 段，每段 2～4 句，最後一段溫柔帶出一個簡單的道理。\n'+
+    '- 不要恐怖、暴力的情節。\n'+
+    '只回傳 JSON，不要任何其他文字：{"title":"故事名","emoji":"一個表情符號","paras":["第一段","第二段"]}';
+  btn.disabled=true;
+  $('aiOut').innerHTML='<div class="loading"><div class="em">👴</div><br>阿公正在想故事…</div>';
+  fetch(S.api,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:3000,messages:[{role:'user',content:prompt}]})})
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+  .then(function(d){
+    var txt=extractText(d);var m=txt.match(/\{[\s\S]*\}/);if(!m)throw new Error('格式不對');
+    var j=JSON.parse(m[0]);
+    if(!j.paras||!j.paras.length)throw new Error('沒有內容');
+    var s={id:'c'+Date.now(),custom:true,emoji:j.emoji||'✨',title:j.title||'阿公的新故事',paras:j.paras.map(function(p){return String(p);})};
+    CUSTOM.unshift(s);saveJSON('gs_custom',CUSTOM);
+    btn.disabled=false;
+    $('aiOut').innerHTML='<div class="preview" style="margin-top:16px"><div style="font-size:40px;text-align:center">'+esc(s.emoji)+'</div><div style="text-align:center;font-weight:700;font-size:22px">'+esc(s.title)+'</div><div style="margin:10px 0;color:#7a5a3c">'+esc(nm(s.paras[0]))+'…</div><button class="btn" id="aiOpen">📖 開始講這個故事</button></div>';
+    $('aiOpen').addEventListener('click',function(){openStory(s);});
+  })['catch'](function(err){
+    btn.disabled=false;
+    $('aiOut').innerHTML='<div class="empty" style="padding:20px">😅 編不出來（'+esc(err.message||'連線失敗')+'）<br>等一下再試，或先講故事書裡的</div>';
+  });
+});
+
+/* ========== 設定 ========== */
+function fillSet(){
+  $('setName').value=S.name||'';$('setAge').value=S.age||5;$('setFont').value=S.font||30;$('setApi').value=S.api||'';
+  $('fontPrev').style.fontSize=(S.font||30)+'px';
+}
+$('setFont').addEventListener('input',function(){$('fontPrev').style.fontSize=this.value+'px';});
+$('setSave').addEventListener('click',function(){
+  S.name=$('setName').value.trim()||'乖孫';
+  S.age=parseInt($('setAge').value,10)||5;
+  S.font=parseInt($('setFont').value,10)||30;
+  S.api=$('setApi').value.trim();
+  saveJSON('gs_set',S);updSub();toast('設定存好了');
+});
+
+/* ========== 啟動 ========== */
+updSub();renderLib();
+if(!loadJSON('gs_named',false)&&S.name==='乖孫'){
+  saveJSON('gs_named',true);
+  setTimeout(function(){toast('先到「設定」填孫子的名字吧！');},800);
+}
+})();
+</script>
+</body>
+</html>
