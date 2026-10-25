@@ -9,8 +9,10 @@
 <meta name="apple-mobile-web-app-title" content="阿公說故事">
 <meta name="theme-color" content="#7a4a22">
 <title>阿公說故事</title>
-<link rel="manifest" id="mf">
-<link rel="apple-touch-icon" id="ati">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <style>
 :root{
   --bg:#fbf4e6;--paper:#fffaf0;--ink:#3b2614;--soft:#7a5a3c;--brown:#7a4a22;
@@ -99,7 +101,7 @@ textarea{min-height:90px;resize:vertical}
 </head>
 <body>
 
-<header class="top">📖 阿公說故事<small id="subTitle">講給乖孫聽</small></header>
+<header class="top"><img src="icon.svg" alt="" style="width:34px;height:34px;border-radius:9px;vertical-align:-7px;margin-right:6px">阿公說故事<small id="subTitle">講給乖孫聽</small></header>
 
 <main>
   <!-- 故事書 -->
@@ -289,20 +291,6 @@ var CUSTOM = loadJSON('gs_custom',[]);
 function nm(t){return String(t).replace(/\{name\}/g,S.name||'乖孫');}
 function allStories(){return CUSTOM.concat(STORIES);}
 function findStory(id){var a=allStories();for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i];}return null;}
-
-/* ========== 圖示 / manifest ========== */
-(function(){
-  try{
-    var c=document.createElement('canvas');c.width=c.height=512;var x=c.getContext('2d');
-    x.fillStyle='#7a4a22';x.fillRect(0,0,512,512);
-    x.fillStyle='#fbf4e6';x.beginPath();x.arc(256,256,200,0,Math.PI*2);x.fill();
-    x.font='240px sans-serif';x.textAlign='center';x.textBaseline='middle';x.fillText('👴',256,250);
-    var url=c.toDataURL('image/png');
-    $('ati').href=url;
-    var m={name:'阿公說故事',short_name:'阿公說故事',start_url:location.href.split('#')[0],display:'standalone',background_color:'#fbf4e6',theme_color:'#7a4a22',icons:[{src:url,sizes:'512x512',type:'image/png'}]};
-    $('mf').href='data:application/manifest+json,'+encodeURIComponent(JSON.stringify(m));
-  }catch(e){}
-})();
 
 /* ========== 分頁 ========== */
 var tabBtns=document.querySelectorAll('nav.tabs button');
