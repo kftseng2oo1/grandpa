@@ -69,9 +69,9 @@ textarea{min-height:90px;resize:vertical}
 .pnav{display:flex;gap:10px;padding:10px 14px calc(12px + env(safe-area-inset-bottom));background:#fff;border-top:2px solid var(--line)}
 .pnav button{flex:1;padding:18px 0;font-size:24px;font-weight:700;background:#efe2cc}
 .pnav button.next{background:var(--orange);color:#fff;flex:1.4}
-#savePanel,#voicePanel{position:fixed;inset:0;z-index:30;background:rgba(40,25,10,.55);display:flex;align-items:flex-end}
-#savePanel .sheet,#voicePanel .sheet{max-height:92vh;overflow-y:auto;width:100%;background:var(--paper);border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
-#savePanel .row,#voicePanel .row{display:flex;gap:10px;margin-top:14px}
+#savePanel,#voicePanel,#sharePanel{position:fixed;inset:0;z-index:30;background:rgba(40,25,10,.55);display:flex;align-items:flex-end}
+#savePanel .sheet,#voicePanel .sheet,#sharePanel .sheet{max-height:92vh;overflow-y:auto;width:100%;background:var(--paper);border-radius:24px 24px 0 0;padding:20px 18px calc(20px + env(safe-area-inset-bottom))}
+#savePanel .row,#voicePanel .row,#sharePanel .row{display:flex;gap:10px;margin-top:14px}
 #savePanel .row button,#voicePanel .row button{flex:1}
 #aiVoiceBtn{background:#3f6f8f;color:#fff;padding:14px 10px;font-size:17px;font-weight:700;white-space:nowrap}
 .vbox{background:#f1f6fa;border:2px solid #c6d8e6;border-radius:20px;padding:16px;margin-top:26px}
@@ -80,6 +80,12 @@ textarea{min-height:90px;resize:vertical}
 .vscript{font-size:24px;line-height:1.7;background:#fff;border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
 #vRec{background:var(--red)}#vRec.on{animation:pulse 1.2s infinite}
 #vTime{min-width:80px;text-align:center;font-size:22px;font-weight:700;color:var(--red);align-self:center;flex:0!important}
+#sharePanel .btn{margin-top:10px;text-align:center;text-decoration:none}
+.btn.line{background:#06c755}
+a.btn{border-radius:16px;color:#fff}
+.shurl{font-size:16px;word-break:break-all;background:#fff;border:2px dashed var(--line);border-radius:12px;padding:10px 12px;margin-top:6px;color:var(--soft)}
+.linkbtn{background:none;color:var(--soft);text-decoration:underline;font-size:16px;padding:12px;display:block;margin:6px auto 0}
+.tag.sh{background:#06c755}
 .tag{display:inline-block;font-size:13px;font-weight:700;background:#3f6f8f;color:#fff;border-radius:8px;padding:1px 7px;margin-left:6px;vertical-align:3px}
 
 /* 錄音清單 */
@@ -225,6 +231,25 @@ textarea{min-height:90px;resize:vertical}
     <div class="hint" id="vMsg" style="font-size:18px;margin-top:12px"></div>
     <button class="btn hidden" id="vTest" style="background:#3f6f8f;margin-top:12px">🔊 聽 AI 阿公說話</button>
     <button class="btn sec" id="vClose" style="margin-top:14px">關閉</button>
+  </div>
+</div>
+
+<div id="sharePanel" class="hidden">
+  <div class="sheet">
+    <h2 style="margin-top:0">📤 分享給<span id="shKid"></span></h2>
+    <div style="font-size:21px;font-weight:700" id="shTitle"></div>
+    <div id="shStep1">
+      <div class="hint" style="font-size:17px">上傳後會產生一個收聽連結，孫子用 LINE 點開就能聽，不用下載檔案。</div>
+      <button class="btn" id="shMake">☁️ 產生收聽連結</button>
+    </div>
+    <div id="shStep2" class="hidden">
+      <div class="shurl" id="shUrl"></div>
+      <a class="btn line" id="shLine" target="_blank" rel="noopener">💬 傳到 LINE</a>
+      <div class="row" style="margin-top:0"><button class="btn sec" id="shMore">📤 其他分享</button><button class="btn sec" id="shCopy">📋 複製連結</button></div>
+      <button class="linkbtn" id="shUnshare">取消分享（刪除雲端的錄音）</button>
+    </div>
+    <div class="hint" id="shMsg" style="font-size:17px;margin-top:8px"></div>
+    <div class="row"><button class="btn sec" id="shFile">📎 改傳音檔</button><button class="btn sec" id="shClose">關閉</button></div>
   </div>
 </div>
 
@@ -495,8 +520,8 @@ function renderRecs(){
     if(!list.length){$('recList').innerHTML='<div class="empty"><div class="em">🎙️</div>還沒有錄音喔<br>到「故事書」挑一個故事<br>按紅色按鈕開始講</div>';return;}
     var h='';
     list.forEach(function(o){
-      h+='<div class="rec" data-id="'+o.id+'"><div class="h"><div class="em">'+esc(o.emoji||'📖')+'</div><div class="t">'+esc(o.title)+(o.ai?'<span class="tag">🤖 AI 聲音</span>':'')+'<small>'+fmtDate(o.date)+'・'+mmss(o.dur)+'</small></div></div>'+
-         '<div class="acts"><button class="play" data-act="play">▶️ 播放</button><button class="share" data-act="share">傳 LINE</button><button class="del" data-act="del">🗑</button></div></div>';
+      h+='<div class="rec" data-id="'+o.id+'"><div class="h"><div class="em">'+esc(o.emoji||'📖')+'</div><div class="t">'+esc(o.title)+(o.ai?'<span class="tag">🤖 AI 聲音</span>':'')+(o.share?'<span class="tag sh">🔗 已分享</span>':'')+'<small>'+fmtDate(o.date)+'・'+mmss(o.dur)+'</small></div></div>'+
+         '<div class="acts"><button class="play" data-act="play">▶️ 播放</button><button class="share" data-act="share">分享</button><button class="del" data-act="del">🗑</button></div></div>';
     });
     $('recList').innerHTML=h;
   });
@@ -523,17 +548,7 @@ $('recList').addEventListener('click',function(e){
     audio.addEventListener('ended',stopPlay);
     var p=audio.play();if(p&&p['catch'])p['catch'](function(){stopPlay();toast('播放失敗');});
   }else if(act==='share'){
-    var blob=new Blob([o.buf],{type:o.type});
-    var fname=o.title.replace(/[\\\/:*?"<>|]/g,'')+extOf(o.type);
-    var file=null;try{file=new File([blob],fname,{type:o.type});}catch(err){}
-    var txt='阿公講故事給'+(S.name||'乖孫')+'聽 ❤️《'+o.title+'》';
-    if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
-      navigator.share({files:[file],title:o.title,text:txt})['catch'](function(){});
-    }else{
-      var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();
-      setTimeout(function(){URL.revokeObjectURL(a.href);a.parentNode.removeChild(a);},1500);
-      toast('已下載，可以從檔案傳到 LINE');
-    }
+    stopPlay();openShare(o);
   }else if(act==='del'){
     if(b.className.indexOf('warn')<0){
       b.className='del warn';b.textContent='再按一次刪除';
@@ -541,7 +556,104 @@ $('recList').addEventListener('click',function(e){
       return;
     }
     if(playing===id)stopPlay();
+    if(o.share)cloudDel(o.share);
     recDel(id,function(){toast('刪掉了');renderRecs();});
+  }
+});
+
+
+/* ========== 分享連結（上傳到 arcar /story） ========== */
+function storyBase(){
+  try{return new URL(S.voiceApi||'https://arcar.kftseng2oo1.workers.dev/voice').origin+'/story';}
+  catch(e){return 'https://arcar.kftseng2oo1.workers.dev/story';}
+}
+var shRec=null,shUnArm=false;
+function shMsg(t){$('shMsg').textContent=t||'';}
+function shareText(o){return '阿公講故事給'+(S.name||'乖孫')+'聽 ❤️\n'+(o.emoji||'📖')+'《'+o.title+'》\n點開就能聽 🎧\n'+o.share.url;}
+function shShow(){
+  var o=shRec;
+  $('shKid').textContent=S.name||'乖孫';
+  $('shTitle').textContent=(o.emoji||'📖')+' '+o.title;
+  shUnArm=false;$('shUnshare').textContent='取消分享（刪除雲端的錄音）';
+  if(o.share){
+    $('shStep1').className='hidden';$('shStep2').className='';
+    $('shUrl').textContent=o.share.url;
+    $('shLine').href='https://line.me/R/share?text='+encodeURIComponent(shareText(o));
+  }else{
+    $('shStep1').className='';$('shStep2').className='hidden';
+  }
+}
+function openShare(o){
+  shRec=o;shMsg('');$('shMake').disabled=false;$('shMake').textContent='☁️ 產生收聽連結';
+  if(/webm|ogg/.test(o.type||''))shMsg('⚠️ 這段是用 Android 錄的格式，iPhone 可能播不了。');
+  shShow();$('sharePanel').className='';
+}
+$('shClose').addEventListener('click',function(){$('sharePanel').className='hidden';renderRecs();});
+$('shMake').addEventListener('click',function(){
+  var o=shRec,btn=this;if(!o||btn.disabled)return;
+  btn.disabled=true;btn.textContent='⏳ 上傳中…';shMsg('');
+  fetch(storyBase(),{method:'POST',headers:{
+    'Content-Type':o.type||'audio/mp4',
+    'X-Token':S.voiceToken||'',
+    'X-Title':encodeURIComponent(o.title||''),
+    'X-Emoji':encodeURIComponent(o.emoji||'📖'),
+    'X-Kid':encodeURIComponent(S.name||'乖孫'),
+    'X-Dur':String(Math.round(o.dur||0)),
+    'X-Ai':o.ai?'1':'0'
+  },body:new Blob([o.buf],{type:o.type||'audio/mp4'})})
+  ['catch'](function(){throw new Error('連不到 arcar，請確認已部署 v24');})
+  .then(function(r){return r.json()['catch'](function(){return {error:'HTTP '+r.status};}).then(function(j){if(!r.ok||j.error)throw new Error(j.error||('HTTP '+r.status));return j;});})
+  .then(function(j){
+    o.share={id:j.id,key:j.key,url:j.url,t:Date.now()};
+    recPut(o,function(){});
+    btn.disabled=false;btn.textContent='☁️ 產生收聽連結';
+    shShow();shMsg('✅ 連結做好了！按「傳到 LINE」選孫子或家人的聊天室就可以。');
+  })['catch'](function(e){
+    btn.disabled=false;btn.textContent='☁️ 再試一次';
+    shMsg('😅 上傳失敗：'+e.message);
+  });
+});
+$('shMore').addEventListener('click',function(){
+  var o=shRec;if(!o||!o.share)return;
+  if(navigator.share){navigator.share({title:o.title,text:shareText(o).replace('\n'+o.share.url,''),url:o.share.url})['catch'](function(){});}
+  else copyText(o.share.url);
+});
+function copyText(t){
+  function fallback(){
+    var ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','');ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();try{ta.setSelectionRange(0,t.length);}catch(e){}
+    var ok=false;try{ok=document.execCommand('copy');}catch(e){}
+    document.body.removeChild(ta);toast(ok?'連結複製好了':'請長按上面的網址複製');
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){toast('連結複製好了');},fallback);}
+  else fallback();
+}
+$('shCopy').addEventListener('click',function(){if(shRec&&shRec.share)copyText(shRec.share.url);});
+function cloudDel(sh,cb){
+  fetch(storyBase()+'/'+sh.id,{method:'DELETE',headers:{'X-Key':sh.key}})
+  .then(function(r){cb&&cb(r.ok);},function(){cb&&cb(false);});
+}
+$('shUnshare').addEventListener('click',function(){
+  var o=shRec,b=this;if(!o||!o.share)return;
+  if(!shUnArm){shUnArm=true;b.textContent='再按一次：孫子的連結會失效';setTimeout(function(){shUnArm=false;b.textContent='取消分享（刪除雲端的錄音）';},3000);return;}
+  shUnArm=false;b.textContent='刪除中…';
+  cloudDel(o.share,function(ok){
+    if(!ok){b.textContent='取消分享（刪除雲端的錄音）';shMsg('😅 刪除失敗，等一下再試');return;}
+    delete o.share;recPut(o,function(){});shShow();shMsg('雲端的錄音刪掉了，舊連結已經失效。');
+  });
+});
+$('shFile').addEventListener('click',function(){
+  var o=shRec;if(!o)return;
+  var blob=new Blob([o.buf],{type:o.type});
+  var fname=o.title.replace(/[\\\/:*?"<>|]/g,'')+extOf(o.type);
+  var file=null;try{file=new File([blob],fname,{type:o.type});}catch(err){}
+  var txt='阿公講故事給'+(S.name||'乖孫')+'聽 ❤️《'+o.title+'》';
+  if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
+    navigator.share({files:[file],title:o.title,text:txt})['catch'](function(){});
+  }else{
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.parentNode.removeChild(a);},1500);
+    toast('已下載，可以從檔案傳到 LINE');
   }
 });
 
