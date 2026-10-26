@@ -3134,7 +3134,7 @@ async function scamLineEvent(ev, env) {
 // POST /voice/tts     { voice_id, text, token }       → audio/mpeg
 // POST /voice/delete  { voice_id, token }             → { ok }
 // Secrets：DASHSCOPE_API_KEY（必要）、VOICE_TOKEN（選用）
-// Vars：DASHSCOPE_BASE（預設新加坡 dashscope-intl）、VOICE_MODEL（預設 cosyvoice-v3-plus）
+// Vars：DASHSCOPE_BASE（預設新加坡 dashscope-intl）、VOICE_MODEL（預設 qwen-audio-3.1-tts-plus；新加坡區 HTTP 合成不支援 CosyVoice）
 // ════════════════════════════════════════════════════════════════
 
 const VOICE_ALLOWED_ORIGINS = [
@@ -3200,7 +3200,7 @@ async function handleVoice(request, env) {
   if (!env.DASHSCOPE_API_KEY) return voiceJson({ error: 'arcar 尚未設定 DASHSCOPE_API_KEY' }, 500, origin);
 
   const action = new URL(request.url).pathname.replace(/^\/voice\/?/, '').replace(/\/+$/, '');
-  const model = env.VOICE_MODEL || 'cosyvoice-v3-plus';
+  const model = env.VOICE_MODEL || 'qwen-audio-3.1-tts-plus';
   let body = {};
   try { body = await request.json(); } catch (e) { /* 空 body */ }
 

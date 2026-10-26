@@ -10,7 +10,7 @@
  *        wrangler secret put VOICE_TOKEN            （選用：App 設定頁要填同一組通行碼）
  *   4. 選用變數（vars）：
  *        DASHSCOPE_BASE  預設 https://dashscope-intl.aliyuncs.com/api/v1  （新加坡區）
- *        VOICE_MODEL     預設 cosyvoice-v3-plus（新加坡區另有 cosyvoice-v3-flash，較便宜）
+ *        VOICE_MODEL     預設 qwen-audio-3.1-tts-plus（新加坡區 HTTP 合成只支援 Qwen-Audio-TTS；較便宜可用 qwen-audio-3.1-tts-flash）
  *
  * API（全部 POST JSON，有設 VOICE_TOKEN 時每個請求都要帶 token 欄位）：
  *   /voice/clone   { audio: "data:audio/wav;base64,...", prefix?: "agong" } → { voice_id }
@@ -84,7 +84,7 @@ export async function handleVoice(request, env) {
   if (!env.DASHSCOPE_API_KEY) return voiceJson({ error: 'arcar 尚未設定 DASHSCOPE_API_KEY' }, 500, origin);
 
   const action = new URL(request.url).pathname.replace(/^\/voice\/?/, '').replace(/\/+$/, '');
-  const model = env.VOICE_MODEL || 'cosyvoice-v3-plus';
+  const model = env.VOICE_MODEL || 'qwen-audio-3.1-tts-plus';
   let body = {};
   try { body = await request.json(); } catch (e) { /* 空 body */ }
 
