@@ -319,7 +319,8 @@ function toast(msg){var t=$('toast');t.textContent=msg;t.className='show';clearT
 function mmss(sec){sec=Math.max(0,Math.round(sec));var m=Math.floor(sec/60),s=sec%60;return (m<10?'0':'')+m+':'+(s<10?'0':'')+s;}
 function fmtDate(ts){var d=new Date(ts);return (d.getMonth()+1)+'/'+d.getDate()+' '+(d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();}
 
-var S = loadJSON('gs_set',{name:'乖孫',age:5,font:30,api:'https://arcar.kftseng2oo1.workers.dev/claude'});
+var S = loadJSON('gs_set',{name:'乖孫',age:5,font:30,api:'https://arcar.kftseng2oo1.workers.dev/v1/messages'});
+if(!S.api||/arcar\.kftseng2oo1\.workers\.dev\/claude\/?$/.test(S.api))S.api='https://arcar.kftseng2oo1.workers.dev/v1/messages';
 if(!S.voiceApi)S.voiceApi='https://arcar.kftseng2oo1.workers.dev/voice';
 if(S.voiceToken==null)S.voiceToken='';
 var CUSTOM = loadJSON('gs_custom',[]);
