@@ -3163,7 +3163,11 @@ function voiceJson(obj, status, origin) {
 }
 
 async function dashscope(env, path, payload) {
-  const base = (env.DASHSCOPE_BASE || 'https://dashscope-intl.aliyuncs.com/api/v1').replace(/\/+$/, '');
+  // DASHSCOPE_BASE 可直接貼控制台複製的 Base URL（不論後面是 /compatible-mode/v1 或其他路徑），只取網域再接 /api/v1
+  let base = 'https://dashscope-intl.aliyuncs.com/api/v1';
+  if (env.DASHSCOPE_BASE) {
+    try { base = new URL(String(env.DASHSCOPE_BASE).trim()).origin + '/api/v1'; } catch (e) { /* 格式不對就用預設 */ }
+  }
   const r = await fetch(base + path, {
     method: 'POST',
     headers: {
