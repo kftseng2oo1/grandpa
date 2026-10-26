@@ -55,6 +55,11 @@ textarea{min-height:90px;resize:vertical}
 #v-read{position:fixed;inset:0;z-index:20;background:var(--paper);display:flex;flex-direction:column}
 .rhead{display:flex;align-items:center;gap:8px;background:var(--brown);color:#fff;padding:calc(env(safe-area-inset-top) + 8px) 10px 8px}
 .rhead button{background:rgba(255,255,255,.18);color:#fff;padding:10px 14px;font-size:18px}
+.rhead button.hidden{display:none}
+.edtitle{font-size:24px!important;font-weight:700;margin-bottom:10px}
+#edText{font-size:inherit;min-height:55vh;line-height:1.6}
+.edhint{font-size:17px;color:var(--soft);margin:2px 0 8px;line-height:1.5}
+.edreset{background:none;color:var(--soft);text-decoration:underline;font-size:17px;padding:14px 4px;display:block}
 .rhead .rt{flex:1;text-align:center;font-size:21px;font-weight:700;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .recbar{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#fff3e3;border-bottom:2px solid var(--line)}
 #recBtn{flex:1;white-space:nowrap;padding:14px;font-size:22px;font-weight:700;background:var(--red);color:#fff}
@@ -192,9 +197,10 @@ a.btn{border-radius:16px;color:#fff}
   <div class="rhead">
     <button id="rBack">← 回去</button>
     <div class="rt" id="rTitle"></div>
+    <button id="rEdit">✏️ 改字</button>
     <button id="rDel" class="hidden">刪除</button>
   </div>
-  <div class="recbar">
+  <div class="recbar" id="recbar">
     <button id="recBtn">🎙️ 錄音</button>
     <div id="recTime">00:00</div>
     <button id="ttsBtn" title="念這段">🔊</button>
@@ -202,9 +208,13 @@ a.btn{border-radius:16px;color:#fff}
   </div>
   <div class="pwrap" id="pwrap"><div id="paraBox"></div></div>
   <div id="paraNum"></div>
-  <div class="pnav">
+  <div class="pnav" id="pnav">
     <button id="pPrev">◀ 上一段</button>
     <button id="pNext" class="next">下一段 ▶</button>
+  </div>
+  <div class="pnav hidden" id="enav">
+    <button id="eCancel">取消</button>
+    <button id="eSave" class="next">✓ 儲存</button>
   </div>
 </div>
 
@@ -352,7 +362,9 @@ if(!S.voiceApi)S.voiceApi='https://arcar.kftseng2oo1.workers.dev/voice';
 if(S.voiceToken==null)S.voiceToken='';
 var CUSTOM = loadJSON('gs_custom',[]);
 function nm(t){return String(t).replace(/\{name\}/g,S.name||'乖孫');}
-function allStories(){return CUSTOM.concat(STORIES);}
+var EDITS = loadJSON('gs_edits',{});   /* 內建故事被阿公改過的版本 {id:{title,paras}} */
+function storyOf(s){var e=EDITS[s.id];if(!e)return s;return {id:s.id,emoji:s.emoji,title:e.title||s.title,paras:e.paras,edited:true};}
+function allStories(){return CUSTOM.concat(STORIES.map(storyOf));}
 function findStory(id){var a=allStories();for(var i=0;i<a.length;i++){if(a[i].id===id)return a[i];}return null;}
 
 /* ========== 分頁 ========== */
@@ -374,7 +386,7 @@ function updSub(){$('subTitle').textContent='講給'+(S.name||'乖孫')+'聽';}
 function renderLib(){
   var h='<button class="card free" data-id="__free"><div class="em">🎙️</div><div class="tt">自己講</div><div class="sub">講阿公小時候的事</div></button>';
   CUSTOM.forEach(function(s){h+='<button class="card mine" data-id="'+esc(s.id)+'"><div class="em">'+esc(s.emoji||'✨')+'</div><div class="tt">'+esc(s.title)+'</div><div class="sub">阿公編的</div></button>';});
-  STORIES.forEach(function(s){h+='<button class="card" data-id="'+s.id+'"><div class="em">'+s.emoji+'</div><div class="tt">'+s.title+'</div><div class="sub">'+s.paras.length+' 段</div></button>';});
+  STORIES.map(storyOf).forEach(function(s){h+='<button class="card" data-id="'+s.id+'"><div class="em">'+s.emoji+'</div><div class="tt">'+esc(s.title)+'</div><div class="sub">'+(s.edited?'✏️ 阿公改過・':'')+s.paras.length+' 段</div></button>';});
   $('libGrid').innerHTML=h;
 }
 $('libGrid').addEventListener('click',function(e){
@@ -390,6 +402,7 @@ function openStory(s){
   cur=s;pIdx=0;
   $('rTitle').textContent=(s.emoji||'')+' '+s.title;
   $('rDel').className=(s.custom?'':'hidden');$('rDel').textContent='刪除';delArm=false;
+  editing=false;setEditUI(false);$('rEdit').className=s.free?'hidden':'';
   $('v-read').className='';
   document.body.style.overflow='hidden';
   renderPara();
@@ -397,6 +410,7 @@ function openStory(s){
 }
 function closeStory(){
   if(rec&&rec.state==='recording'){toast('先按「停止」結束錄音喔');return;}
+  if(editing){editing=false;setEditUI(false);}
   stopTTS();
   $('v-read').className='hidden';document.body.style.overflow='';
   try{if(wakeLock){wakeLock.release();wakeLock=null;}}catch(e){}
@@ -431,6 +445,62 @@ $('rDel').addEventListener('click',function(){
   if(!delArm){delArm=true;this.textContent='再按一次';var b=this;clearTimeout(delT);delT=setTimeout(function(){delArm=false;b.textContent='刪除';},3000);return;}
   var id=cur.id;CUSTOM=CUSTOM.filter(function(s){return s.id!==id;});saveJSON('gs_custom',CUSTOM);
   closeStory();renderLib();toast('故事刪掉了');
+});
+
+
+/* ========== 改故事的字 ========== */
+var editing=false,resetArm=false;
+function setEditUI(on){
+  $('recbar').className=on?'recbar hidden':'recbar';
+  $('pnav').className=on?'pnav hidden':'pnav';
+  $('enav').className=on?'pnav':'pnav hidden';
+  $('rEdit').textContent=on?'✏️ 改字中':'✏️ 改字';
+}
+/* 編輯時把 {name} 換成孫子名字給阿公看，存的時候再換回 {name}，以後改名字故事也會跟著變 */
+function toEdit(t){return nm(t);}
+function fromEdit(t){
+  var n=S.name||'乖孫';
+  if(n.length>=2)t=t.split(n).join('{name}');
+  return t;
+}
+$('rEdit').addEventListener('click',function(){
+  if(!cur||cur.free||editing)return;
+  if(rec&&rec.state==='recording'){toast('錄音中先不要改喔');return;}
+  stopTTS();editing=true;resetArm=false;setEditUI(true);
+  var box=$('paraBox');box.style.fontSize=Math.min(S.font,30)+'px';
+  var isBuiltin=!cur.custom;
+  box.innerHTML='<div class="edhint">直接改字就好。<b>每段中間空一行</b>，就會分成不同段。</div>'+
+    '<input type="text" class="edtitle" id="edTitle">'+
+    '<textarea id="edText"></textarea>'+
+    (isBuiltin&&EDITS[cur.id]?'<button class="edreset" id="edReset">↩︎ 恢復成原本的故事</button>':'');
+  $('edTitle').value=cur.title;
+  $('edText').value=cur.paras.map(toEdit).join('\n\n');
+  $('paraNum').textContent='改好按「✓ 儲存」';
+  $('pwrap').scrollTop=0;
+  if($('edReset'))$('edReset').addEventListener('click',function(){
+    if(!resetArm){resetArm=true;this.textContent='再按一次：改過的字會不見';var b=this;setTimeout(function(){resetArm=false;b.textContent='↩︎ 恢復成原本的故事';},3000);return;}
+    delete EDITS[cur.id];saveJSON('gs_edits',EDITS);
+    var orig=null;for(var i=0;i<STORIES.length;i++){if(STORIES[i].id===cur.id)orig=STORIES[i];}
+    cur=orig;editing=false;setEditUI(false);pIdx=0;
+    $('rTitle').textContent=(cur.emoji||'')+' '+cur.title;renderPara();renderLib();toast('恢復成原本的故事了');
+  });
+});
+$('eCancel').addEventListener('click',function(){editing=false;setEditUI(false);renderPara();});
+$('eSave').addEventListener('click',function(){
+  var title=$('edTitle').value.trim()||cur.title;
+  var paras=$('edText').value.replace(/\r/g,'').split(/\n\s*\n+/).map(function(p){return fromEdit(p.trim());}).filter(function(p){return p;});
+  if(!paras.length){toast('故事不能是空的喔');return;}
+  if(cur.custom){
+    for(var i=0;i<CUSTOM.length;i++){if(CUSTOM[i].id===cur.id){CUSTOM[i].title=title;CUSTOM[i].paras=paras;cur=CUSTOM[i];}}
+    saveJSON('gs_custom',CUSTOM);
+  }else{
+    EDITS[cur.id]={title:title,paras:paras};saveJSON('gs_edits',EDITS);
+    cur=storyOf({id:cur.id,emoji:cur.emoji,title:title,paras:paras});
+  }
+  if(pIdx>=paras.length)pIdx=paras.length-1;
+  editing=false;setEditUI(false);
+  $('rTitle').textContent=(cur.emoji||'')+' '+cur.title;
+  renderPara();renderLib();toast('改好了！');
 });
 
 /* 手機念（TTS） */
