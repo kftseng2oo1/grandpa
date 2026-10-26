@@ -167,6 +167,7 @@ textarea{min-height:90px;resize:vertical}
       <h2>🤖 阿公的 AI 聲音</h2>
       <div class="vstat" id="vStat"></div>
       <button class="btn" id="vSetup" style="background:#3f6f8f">🎙️ 錄聲音樣本</button>
+      <button class="btn hidden" id="vTest2" style="background:var(--green);margin-top:10px">🔊 聽 AI 阿公說話</button>
       <button class="btn sec hidden" id="vDel" style="margin-top:10px">刪除 AI 聲音</button>
       <div class="hint">AI 會模仿阿公的聲音念新故事，念出來的錄音會標上 🤖，讓孩子知道哪些是阿公親口講的。樣本會上傳到阿里雲做聲音複製，請先取得阿公同意。</div>
     </div>
@@ -222,6 +223,7 @@ textarea{min-height:90px;resize:vertical}
     <div class="row"><button class="btn" id="vRec">🎙️ 開始錄</button><div id="vTime">00:00</div></div>
     <div id="vAfter" class="hidden"><div class="row"><button class="btn sec" id="vPlay">▶️ 聽聽看</button><button class="btn green" id="vUpload">✓ 就用這段</button></div></div>
     <div class="hint" id="vMsg" style="font-size:18px;margin-top:12px"></div>
+    <button class="btn hidden" id="vTest" style="background:#3f6f8f;margin-top:12px">🔊 聽 AI 阿公說話</button>
     <button class="btn sec" id="vClose" style="margin-top:14px">關閉</button>
   </div>
 </div>
@@ -621,20 +623,45 @@ function aiSay(text,cb){
     vPost('tts',{voice_id:V.id,text:text},true).then(function(buf){ttsPut(k,buf);cb(null,buf);})['catch'](function(e){cb(e);});
   });
 }
-var sayAudio=null,sayUrl=null;
-function stopSay(){
-  if(sayAudio){try{sayAudio.pause();}catch(e){}}
-  if(sayUrl){try{URL.revokeObjectURL(sayUrl);}catch(e){}}
-  sayAudio=null;sayUrl=null;
+/* iOS 只允許「手指按下去」時開始播放。做法：按鈕被按的當下，先用同一個 Audio 元素播一段無聲音檔「解鎖」，
+   之後 AI 合成好了再換 src 播放，iOS 就會放行。 */
+var sayAudio=new Audio(),sayUrl=null;
+var SILENT='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+function unlockAudio(){
+  try{
+    if(sayUrl){URL.revokeObjectURL(sayUrl);sayUrl=null;}
+    sayAudio.src=SILENT;
+    var p=sayAudio.play();if(p&&p['catch'])p['catch'](function(){});
+  }catch(e){}
 }
-function playBuf(buf,type){
+function stopSay(){
+  try{sayAudio.pause();}catch(e){}
+  if(sayUrl){try{URL.revokeObjectURL(sayUrl);}catch(e){}}
+  sayUrl=null;
+}
+function playBuf(buf,type,onFail){
   stopSay();
   sayUrl=URL.createObjectURL(new Blob([buf],{type:type||'audio/mpeg'}));
-  sayAudio=new Audio(sayUrl);
-  var p=sayAudio.play();if(p&&p['catch'])p['catch'](function(){toast('播放失敗，再按一次');});
+  sayAudio.src=sayUrl;
+  var p=sayAudio.play();
+  if(p&&p['catch'])p['catch'](function(){if(onFail)onFail();else toast('播放失敗，再按一次');});
+}
+/* 試聽 AI 阿公的聲音（設定頁、錄樣本面板共用） */
+var TEST_TEXT='{name}，你聽，這是阿公的聲音喔！今天晚上阿公再講一個故事給你聽。';
+function testVoice(btn,show){
+  if(!voiceReady()){show('還沒有 AI 聲音，請先錄樣本');return;}
+  if(btn.disabled)return;
+  unlockAudio();
+  var label=btn.textContent;btn.disabled=true;btn.textContent='⏳ 阿公準備中…';
+  aiSay(nm(TEST_TEXT),function(err,buf){
+    btn.disabled=false;btn.textContent=label;
+    if(err){show('😅 AI 聲音失敗：'+err.message);return;}
+    playBuf(buf,'audio/mpeg');
+  });
 }
 function sayPara(){
   var btn=$('ttsBtn');if(btn.disabled)return;
+  unlockAudio();
   btn.disabled=true;btn.textContent='⏳';
   aiSay(nm(cur.paras[pIdx]),function(err,buf){
     btn.disabled=false;btn.textContent='🔊';
@@ -710,7 +737,7 @@ function vMsg(t){$('vMsg').textContent=t||'';}
 function openVoicePanel(){
   if(!vBase()){toast('先填「聲音服務網址」');return;}
   $('vScript').textContent=nm(SAMPLE_TEXT);
-  vBlob=null;$('vAfter').className='hidden';vMsg('');$('vTime').textContent='00:00';
+  vBlob=null;$('vAfter').className='hidden';$('vTest').className=voiceReady()?'btn':'btn hidden';vMsg('');$('vTime').textContent='00:00';
   $('vRec').disabled=false;$('vRec').textContent='🎙️ 開始錄';
   $('voicePanel').className='';
 }
@@ -745,7 +772,8 @@ $('vRec').addEventListener('click',function(){
 });
 $('vPlay').addEventListener('click',function(){if(vBlob)playBuf(vBlob,vMime);});
 $('vUpload').addEventListener('click',function(){
-  if(!vBlob)return;var btn=this;btn.disabled=true;$('vRec').disabled=true;stopSay();
+  if(!vBlob)return;var btn=this;btn.disabled=true;$('vRec').disabled=true;
+  unlockAudio();$('vTest').className='btn hidden';
   vMsg('整理聲音中…');
   blobToWav(vBlob,function(err,dataUrl){
     if(err){btn.disabled=false;$('vRec').disabled=false;vMsg('😅 '+err.message);return;}
@@ -757,8 +785,9 @@ $('vUpload').addEventListener('click',function(){
       pollVoice(function(ok,msg){
         btn.disabled=false;$('vRec').disabled=false;
         if(!ok){vMsg('😅 '+msg);return;}
-        vMsg('✅ 做好了！聽聽看像不像～');
-        aiSay(nm('{name}，你聽，這是阿公的聲音喔！今天晚上阿公再講一個故事給你聽。'),function(e2,buf){if(!e2)playBuf(buf,'audio/mpeg');});
+        vMsg('✅ 做好了！按下面「🔊 聽 AI 阿公說話」聽聽看像不像～');
+        $('vTest').className='btn';
+        aiSay(nm(TEST_TEXT),function(e2,buf){if(!e2)playBuf(buf,'audio/mpeg',function(){});});
       });
     })['catch'](function(e){btn.disabled=false;$('vRec').disabled=false;vMsg('😅 建立失敗：'+e.message);});
   });
@@ -784,8 +813,11 @@ $('vDel').addEventListener('click',function(){
   var id=V&&V.id;V=null;saveJSON('gs_voice',null);updVoiceUI();toast('AI 聲音刪掉了');
   if(id)vPost('delete',{voice_id:id})['catch'](function(){});
 });
+$('vTest').addEventListener('click',function(){testVoice(this,vMsg);});
+$('vTest2').addEventListener('click',function(){testVoice(this,toast);});
 function updVoiceUI(){
   var st=$('vStat');
+  $('vTest2').className=voiceReady()?'btn':'btn hidden';
   if(!V){st.textContent='還沒有設定。阿公念一段 20 秒的樣本，就能用阿公的聲音念新故事。';$('vSetup').textContent='🎙️ 錄聲音樣本';$('vDel').className='btn sec hidden';}
   else if(V.status==='OK'){st.textContent='✅ 已經可以用阿公的聲音念故事了';$('vSetup').textContent='🎙️ 重錄樣本';$('vDel').className='btn sec';}
   else if(V.status==='DEPLOYING'){st.textContent='⏳ AI 還在學阿公的聲音…';$('vSetup').textContent='🎙️ 重錄樣本';$('vDel').className='btn sec';}
