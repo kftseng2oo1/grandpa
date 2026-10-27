@@ -1,5 +1,5 @@
 
-// Cloudflare Worker — arcar.kftseng2oo1.workers.dev v24
+// Cloudflare Worker — arcar.kftseng2oo1.workers.dev v25
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -119,7 +119,7 @@ export default {
       // ── 早安卡片 有聲影片旁白 TTS（v14 新增）──
       if (path === '/tts') return handleTTS(request, env);
       if (path === '/v1/messages' || path === '/') {
-        if (request.method === 'GET') return ok({ status: 'ok', worker: 'arcar', version: '24.0' });
+        if (request.method === 'GET') return ok({ status: 'ok', worker: 'arcar', version: '25.0' });
         return handleAnthropic(request, env);
       }
       return err('Not Found', 404);
@@ -2066,7 +2066,7 @@ const TTS_CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Expose-Headers': 'X-TTS-Engine',
+  'Access-Control-Expose-Headers': 'X-TTS-Engine, X-TTS-Note',
 };
 
 const TTS_VOICES = {
@@ -2083,10 +2083,25 @@ async function handleTTS(request, env) {
   try { body = await request.json(); } catch (e) { return ttsJson({ error: 'bad json' }, 400); }
   const text = String(body.text || '').trim().slice(0, 300);
   if (!text) return ttsJson({ error: 'empty text' }, 400);
-  const v = TTS_VOICES[body.voice] || TTS_VOICES.female;
   const rate = Math.max(-50, Math.min(50, parseInt(body.rate, 10) || 0)); // 百分比
 
   const errors = [];
+  // ── 阿公 AI 聲音（v25）：voice:"agong" 用阿公說故事 App 複製的聲音；失敗就改用男聲，影片照樣做得出來 ──
+  if (body.voice === 'agong') {
+    try {
+      if (env.VOICE_TOKEN && String(body.token || '') !== env.VOICE_TOKEN) throw new Error('通行碼不對');
+      const def = await voiceGetDefault(env);
+      if (!def) throw new Error('還沒有設定阿公的聲音');
+      const bytes = await voiceSynth(env, def.id, text, rate);
+      return new Response(bytes, {
+        headers: { ...TTS_CORS, 'Content-Type': 'audio/mpeg', 'X-TTS-Engine': 'agong', 'Cache-Control': 'no-store' },
+      });
+    } catch (e) {
+      errors.push('agong: ' + (e && e.message || e));
+    }
+  }
+  const v = TTS_VOICES[body.voice] || (body.voice === 'agong' ? TTS_VOICES.male : TTS_VOICES.female);
+
   const engines = [
     ['mstrans', () => msTransTTS(text, v.edge, rate)],
     ['edge',   () => edgeTTS(text, v.edge, rate)],
@@ -2097,9 +2112,9 @@ async function handleTTS(request, env) {
     try {
       const out = await fn();
       if (!out) { errors.push(name + ': no key'); continue; }
-      return new Response(out.bytes, {
-        headers: { ...TTS_CORS, 'Content-Type': out.mime, 'X-TTS-Engine': name, 'Cache-Control': 'no-store' },
-      });
+      const hd = { ...TTS_CORS, 'Content-Type': out.mime, 'X-TTS-Engine': name, 'Cache-Control': 'no-store' };
+      if (errors.length) hd['X-TTS-Note'] = encodeURIComponent(errors.join(' | ').slice(0, 200));   // 例如阿公聲音失敗的原因
+      return new Response(out.bytes, { headers: hd });
     } catch (e) {
       errors.push(name + ': ' + (e && e.message || e));
     }
@@ -3164,6 +3179,26 @@ function voiceJson(obj, status, origin) {
   });
 }
 
+/* 阿公預設聲音：存在 KV（STORY_KV 或 BLESSING_KV）的 voice:agong，給 /tts 的 voice:"agong" 用（早安圖旁白等） */
+function voiceKV(env) { return env.STORY_KV || env.BLESSING_KV || null; }
+async function voiceGetDefault(env) {
+  const kv = voiceKV(env);
+  if (!kv) return null;
+  try { const raw = await kv.get('voice:agong'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+/* 用複製的聲音合成，回傳 mp3 的 ArrayBuffer；rate 為百分比（-50～50），0 表示正常速度 */
+async function voiceSynth(env, voiceId, text, rate) {
+  const input = { text, voice: String(voiceId), format: 'mp3', sample_rate: 24000 };
+  const r = parseInt(rate, 10) || 0;
+  if (r) input.rate = Math.max(0.5, Math.min(2, 1 + r / 100));
+  const d = await dashscope(env, '/services/audio/tts/SpeechSynthesizer', { model: env.VOICE_MODEL || 'qwen-audio-3.1-tts-plus', input });
+  const audioUrl = d.output && d.output.audio && d.output.audio.url;
+  if (!audioUrl) { const e = new Error('沒有拿到音檔'); e.status = 502; throw e; }
+  const a = await fetch(audioUrl);
+  if (!a.ok) { const e = new Error('下載音檔失敗'); e.status = 502; throw e; }
+  return await a.arrayBuffer();
+}
+
 async function dashscope(env, path, payload) {
   // DASHSCOPE_BASE 可直接貼控制台複製的 Base URL（不論後面是 /compatible-mode/v1 或其他路徑），只取網域再接 /api/v1
   let base = 'https://dashscope-intl.aliyuncs.com/api/v1';
@@ -3241,15 +3276,8 @@ async function handleVoice(request, env) {
       if (!body.voice_id) return voiceJson({ error: '缺 voice_id' }, 400, origin);
       if (!text) return voiceJson({ error: '沒有文字' }, 400, origin);
       if (text.length > VOICE_MAX_TEXT) return voiceJson({ error: '一次最多 ' + VOICE_MAX_TEXT + ' 字' }, 400, origin);
-      const d = await dashscope(env, '/services/audio/tts/SpeechSynthesizer', {
-        model,
-        input: { text, voice: String(body.voice_id), format: 'mp3', sample_rate: 24000 },
-      });
-      const audioUrl = d.output && d.output.audio && d.output.audio.url;
-      if (!audioUrl) return voiceJson({ error: '沒有拿到音檔' }, 502, origin);
-      const a = await fetch(audioUrl);
-      if (!a.ok) return voiceJson({ error: '下載音檔失敗' }, 502, origin);
-      return new Response(a.body, {
+      const bytes = await voiceSynth(env, body.voice_id, text, 0);
+      return new Response(bytes, {
         headers: { ...voiceCors(origin), 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' },
       });
     }
@@ -3260,7 +3288,22 @@ async function handleVoice(request, env) {
         model: 'voice-enrollment',
         input: { action: 'delete_voice', voice_id: String(body.voice_id) },
       });
+      const def = await voiceGetDefault(env);
+      if (def && def.id === String(body.voice_id)) await voiceKV(env).delete('voice:agong');
       return voiceJson({ ok: true }, 200, origin);
+    }
+
+    // 設成阿公的預設聲音（給 /tts voice:"agong" 用）；voice_id 傳空字串 = 取消
+    if (action === 'default') {
+      const kv = voiceKV(env);
+      if (!kv) return voiceJson({ error: 'arcar 沒有綁 STORY_KV 或 BLESSING_KV' }, 500, origin);
+      if (!body.voice_id) { await kv.delete('voice:agong'); return voiceJson({ ok: true, voice_id: null }, 200, origin); }
+      await kv.put('voice:agong', JSON.stringify({ id: String(body.voice_id), model, t: Date.now() }));
+      return voiceJson({ ok: true, voice_id: String(body.voice_id) }, 200, origin);
+    }
+    if (action === 'default-get') {
+      const def = await voiceGetDefault(env);
+      return voiceJson({ voice_id: def ? def.id : null }, 200, origin);
     }
 
     return voiceJson({ error: '沒有這個功能：' + action }, 404, origin);

@@ -980,7 +980,7 @@ function pollVoice(cb){
   polling=true;var n=0;
   (function tick(){
     vPost('status',{voice_id:V.id}).then(function(d){
-      if(d.status==='OK'){polling=false;V.status='OK';saveJSON('gs_voice',V);updVoiceUI();cb&&cb(true);return;}
+      if(d.status==='OK'){polling=false;V.status='OK';saveJSON('gs_voice',V);updVoiceUI();regDefault();cb&&cb(true);return;}
       if(d.status!=='DEPLOYING'){polling=false;V.status=d.status;saveJSON('gs_voice',V);updVoiceUI();cb&&cb(false,'樣本不能用（'+d.status+'），換個安靜的地方再錄一次');return;}
       if(++n>60){polling=false;cb&&cb(false,'等太久了，等一下回到設定頁再看看');return;}
       setTimeout(tick,2000);
@@ -995,13 +995,18 @@ $('vDel').addEventListener('click',function(){
   var id=V&&V.id;V=null;saveJSON('gs_voice',null);updVoiceUI();toast('AI 聲音刪掉了');
   if(id)vPost('delete',{voice_id:id})['catch'](function(){});
 });
+/* 把阿公的聲音登記成 arcar 的預設聲音，早安圖等其他 App 的「阿公」旁白就會用它 */
+function regDefault(){
+  if(!voiceReady()||V.def===V.id)return;
+  vPost('default',{voice_id:V.id}).then(function(){V.def=V.id;saveJSON('gs_voice',V);updVoiceUI();})['catch'](function(){});
+}
 $('vTest').addEventListener('click',function(){testVoice(this,vMsg);});
 $('vTest2').addEventListener('click',function(){testVoice(this,toast);});
 function updVoiceUI(){
   var st=$('vStat');
   $('vTest2').className=voiceReady()?'btn':'btn hidden';
   if(!V){st.textContent='還沒有設定。阿公念一段 20 秒的樣本，就能用阿公的聲音念新故事。';$('vSetup').textContent='🎙️ 錄聲音樣本';$('vDel').className='btn sec hidden';}
-  else if(V.status==='OK'){st.textContent='✅ 已經可以用阿公的聲音念故事了';$('vSetup').textContent='🎙️ 重錄樣本';$('vDel').className='btn sec';}
+  else if(V.status==='OK'){st.textContent='✅ 已經可以用阿公的聲音念故事了'+(V.def===V.id?'，早安圖的「阿公」旁白也會用這個聲音':'');$('vSetup').textContent='🎙️ 重錄樣本';$('vDel').className='btn sec';}
   else if(V.status==='DEPLOYING'){st.textContent='⏳ AI 還在學阿公的聲音…';$('vSetup').textContent='🎙️ 重錄樣本';$('vDel').className='btn sec';}
   else{st.textContent='😅 上次的樣本不能用，請重錄';$('vSetup').textContent='🎙️ 重錄樣本';$('vDel').className='btn sec';}
 }
@@ -1010,6 +1015,7 @@ function updVoiceUI(){
 function fillSet(){
   $('setName').value=S.name||'';$('setAge').value=S.age||5;$('setFont').value=S.font||30;$('setApi').value=S.api||'';$('setVoiceApi').value=S.voiceApi||'';$('setVoiceToken').value=S.voiceToken||'';
   updVoiceUI();if(V&&V.status==='DEPLOYING')pollVoice();
+  regDefault();
   $('fontPrev').style.fontSize=(S.font||30)+'px';
 }
 $('setFont').addEventListener('input',function(){$('fontPrev').style.fontSize=this.value+'px';});

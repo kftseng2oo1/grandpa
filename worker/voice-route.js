@@ -17,6 +17,7 @@
  *   /voice/status  { voice_id }                                           → { status }  OK / DEPLOYING / 其他=失敗
  *   /voice/tts     { voice_id, text }                                     → audio/mpeg 音檔
  *   /voice/delete  { voice_id }                                           → { ok: true }
+ *   /voice/default { voice_id }                                           → 設成阿公預設聲音（/tts voice:"agong" 用）
  *
  * 注意：複製出來的聲音綁定建立時的 VOICE_MODEL，之後換模型要重新建立。
  */
@@ -44,6 +45,26 @@ function voiceJson(obj, status, origin) {
     status: status || 200,
     headers: { ...voiceCors(origin), 'Content-Type': 'application/json; charset=utf-8' },
   });
+}
+
+/* 阿公預設聲音：存在 KV（STORY_KV 或 BLESSING_KV）的 voice:agong，給 /tts 的 voice:"agong" 用（早安圖旁白等） */
+function voiceKV(env) { return env.STORY_KV || env.BLESSING_KV || null; }
+async function voiceGetDefault(env) {
+  const kv = voiceKV(env);
+  if (!kv) return null;
+  try { const raw = await kv.get('voice:agong'); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+}
+/* 用複製的聲音合成，回傳 mp3 的 ArrayBuffer；rate 為百分比（-50～50），0 表示正常速度 */
+async function voiceSynth(env, voiceId, text, rate) {
+  const input = { text, voice: String(voiceId), format: 'mp3', sample_rate: 24000 };
+  const r = parseInt(rate, 10) || 0;
+  if (r) input.rate = Math.max(0.5, Math.min(2, 1 + r / 100));
+  const d = await dashscope(env, '/services/audio/tts/SpeechSynthesizer', { model: env.VOICE_MODEL || 'qwen-audio-3.1-tts-plus', input });
+  const audioUrl = d.output && d.output.audio && d.output.audio.url;
+  if (!audioUrl) { const e = new Error('沒有拿到音檔'); e.status = 502; throw e; }
+  const a = await fetch(audioUrl);
+  if (!a.ok) { const e = new Error('下載音檔失敗'); e.status = 502; throw e; }
+  return await a.arrayBuffer();
 }
 
 async function dashscope(env, path, payload) {
@@ -123,15 +144,8 @@ export async function handleVoice(request, env) {
       if (!body.voice_id) return voiceJson({ error: '缺 voice_id' }, 400, origin);
       if (!text) return voiceJson({ error: '沒有文字' }, 400, origin);
       if (text.length > VOICE_MAX_TEXT) return voiceJson({ error: '一次最多 ' + VOICE_MAX_TEXT + ' 字' }, 400, origin);
-      const d = await dashscope(env, '/services/audio/tts/SpeechSynthesizer', {
-        model,
-        input: { text, voice: String(body.voice_id), format: 'mp3', sample_rate: 24000 },
-      });
-      const audioUrl = d.output && d.output.audio && d.output.audio.url;
-      if (!audioUrl) return voiceJson({ error: '沒有拿到音檔' }, 502, origin);
-      const a = await fetch(audioUrl);
-      if (!a.ok) return voiceJson({ error: '下載音檔失敗' }, 502, origin);
-      return new Response(a.body, {
+      const bytes = await voiceSynth(env, body.voice_id, text, 0);
+      return new Response(bytes, {
         headers: { ...voiceCors(origin), 'Content-Type': 'audio/mpeg', 'Cache-Control': 'no-store' },
       });
     }
@@ -142,7 +156,22 @@ export async function handleVoice(request, env) {
         model: 'voice-enrollment',
         input: { action: 'delete_voice', voice_id: String(body.voice_id) },
       });
+      const def = await voiceGetDefault(env);
+      if (def && def.id === String(body.voice_id)) await voiceKV(env).delete('voice:agong');
       return voiceJson({ ok: true }, 200, origin);
+    }
+
+    // 設成阿公的預設聲音（給 /tts voice:"agong" 用）；voice_id 傳空字串 = 取消
+    if (action === 'default') {
+      const kv = voiceKV(env);
+      if (!kv) return voiceJson({ error: 'arcar 沒有綁 STORY_KV 或 BLESSING_KV' }, 500, origin);
+      if (!body.voice_id) { await kv.delete('voice:agong'); return voiceJson({ ok: true, voice_id: null }, 200, origin); }
+      await kv.put('voice:agong', JSON.stringify({ id: String(body.voice_id), model, t: Date.now() }));
+      return voiceJson({ ok: true, voice_id: String(body.voice_id) }, 200, origin);
+    }
+    if (action === 'default-get') {
+      const def = await voiceGetDefault(env);
+      return voiceJson({ voice_id: def ? def.id : null }, 200, origin);
     }
 
     return voiceJson({ error: '沒有這個功能：' + action }, 404, origin);
