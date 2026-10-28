@@ -88,6 +88,7 @@ textarea{min-height:90px;resize:vertical}
 #sharePanel .btn{margin-top:10px;text-align:center;text-decoration:none}
 .btn.line{background:#06c755}
 a.btn{border-radius:16px;color:#fff}
+label.btn{border-radius:16px;cursor:pointer}
 .shurl{font-size:16px;word-break:break-all;background:#fff;border:2px dashed var(--line);border-radius:12px;padding:10px 12px;margin-top:6px;color:var(--soft)}
 .linkbtn{background:none;color:var(--soft);text-decoration:underline;font-size:16px;padding:12px;display:block;margin:6px auto 0}
 .tag.sh{background:#06c755}
@@ -237,6 +238,8 @@ a.btn{border-radius:16px;color:#fff}
     <div class="hint" style="font-size:17px">找安靜的地方，手機拿近一點，用平常講故事的語氣念下面這段（大約 15～20 秒）。</div>
     <div class="vscript" id="vScript"></div>
     <div class="row"><button class="btn" id="vRec">🎙️ 開始錄</button><div id="vTime">00:00</div></div>
+    <label class="btn sec" id="vFileLbl" style="display:block;text-align:center;margin-top:10px">📁 或從手機選聲音檔<input type="file" id="vFile" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.mp4,.mov" style="display:none"></label>
+    <div class="hint" style="font-size:15px">可以用 LINE 存下來的語音訊息、錄音 App 的檔案，或阿公講話的影片。只要阿公一個人在講話、沒有背景音樂就好。</div>
     <div id="vAfter" class="hidden"><div class="row"><button class="btn sec" id="vPlay">▶️ 聽聽看</button><button class="btn green" id="vUpload">✓ 就用這段</button></div></div>
     <div class="hint" id="vMsg" style="font-size:18px;margin-top:12px"></div>
     <button class="btn hidden" id="vTest" style="background:#3f6f8f;margin-top:12px">🔊 聽 AI 阿公說話</button>
@@ -888,6 +891,18 @@ $('aiVoiceBtn').addEventListener('click',function(){
 });
 
 /* 錄聲音樣本 → 轉 16-bit 單聲道 WAV → 上傳建立聲音 */
+var SAMPLE_MAX=45;
+/* 只解碼拿長度，用來檢查選進來的聲音檔 */
+function audioDur(blob,cb){
+  var fr=new FileReader();
+  fr.onload=function(){
+    var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return cb(new Error('這支手機不能處理音檔'));
+    var ac=new AC();
+    ac.decodeAudioData(fr.result,function(ab){try{ac.close();}catch(e){}cb(null,ab.duration);},function(){try{ac.close();}catch(e){}cb(new Error('這個檔案打不開，請換 m4a、mp3 或 wav 檔'));});
+  };
+  fr.onerror=function(){cb(new Error('讀檔失敗'));};
+  fr.readAsArrayBuffer(blob);
+}
 function wStr(dv,o,s){for(var i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));}
 function blobToWav(blob,cb){
   var fr=new FileReader();
@@ -896,17 +911,21 @@ function blobToWav(blob,cb){
     if(!AC)return cb(new Error('這支手機不能處理音檔'));
     var ac=new AC();
     ac.decodeAudioData(fr.result,function(ab){
-      var c0=ab.getChannelData(0),c1=ab.numberOfChannels>1?ab.getChannelData(1):null,len=c0.length,sr=ab.sampleRate,i,v,peak=0;
-      for(i=0;i<len;i++){v=Math.abs(c1?(c0[i]+c1[i])/2:c0[i]);if(v>peak)peak=v;}
+      var c0=ab.getChannelData(0),c1=ab.numberOfChannels>1?ab.getChannelData(1):null,total=c0.length,sr=ab.sampleRate,i,v,peak=0;
+      /* 跳過開頭的靜音（留 0.2 秒），最多取 SAMPLE_MAX 秒（API 上限 60 秒，太長也沒幫助） */
+      var st=0;while(st<total&&Math.abs(c1?(c0[st]+c1[st])/2:c0[st])<0.02)st++;
+      st=st>=total?0:Math.max(0,st-Math.round(sr*0.2));
+      var len=Math.min(total-st,Math.round(sr*SAMPLE_MAX));
+      for(i=0;i<len;i++){v=Math.abs(c1?(c0[st+i]+c1[st+i])/2:c0[st+i]);if(v>peak)peak=v;}
       var gain=peak>0.01&&peak<0.7?0.9/peak:1;   /* 太小聲就放大一點 */
       var out=new ArrayBuffer(44+len*2),dv=new DataView(out);
       wStr(dv,0,'RIFF');dv.setUint32(4,36+len*2,true);wStr(dv,8,'WAVE');wStr(dv,12,'fmt ');
       dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,1,true);dv.setUint32(24,sr,true);
       dv.setUint32(28,sr*2,true);dv.setUint16(32,2,true);dv.setUint16(34,16,true);wStr(dv,36,'data');dv.setUint32(40,len*2,true);
-      for(i=0;i<len;i++){v=(c1?(c0[i]+c1[i])/2:c0[i])*gain;v=v>1?1:(v<-1?-1:v);dv.setInt16(44+i*2,v<0?v*0x8000:v*0x7FFF,true);}
+      for(i=0;i<len;i++){v=(c1?(c0[st+i]+c1[st+i])/2:c0[st+i])*gain;v=v>1?1:(v<-1?-1:v);dv.setInt16(44+i*2,v<0?v*0x8000:v*0x7FFF,true);}
       try{ac.close();}catch(e){}
       var r2=new FileReader();
-      r2.onload=function(){cb(null,r2.result,ab.duration);};
+      r2.onload=function(){cb(null,r2.result,len/sr);};
       r2.onerror=function(){cb(new Error('轉檔失敗'));};
       r2.readAsDataURL(new Blob([out],{type:'audio/wav'}));
     },function(){try{ac.close();}catch(e){}cb(new Error('音檔解碼失敗'));});
@@ -972,6 +991,23 @@ $('vUpload').addEventListener('click',function(){
         aiSay(nm(TEST_TEXT),function(e2,buf){if(!e2)playBuf(buf,'audio/mpeg',function(){});});
       });
     })['catch'](function(e){btn.disabled=false;$('vRec').disabled=false;vMsg('😅 建立失敗：'+e.message);});
+  });
+});
+
+/* 從手機選聲音檔（LINE 語音、錄音 App、影片都可以） */
+$('vFile').addEventListener('change',function(){
+  var f=this.files&&this.files[0];this.value='';
+  if(!f)return;
+  if(vRec&&vRec.state==='recording'){toast('先停止錄音');return;}
+  if(f.size>60*1024*1024){vMsg('😅 檔案太大了，請選 60 MB 以內的');return;}
+  stopSay();$('vAfter').className='hidden';vMsg('讀取檔案中…');
+  audioDur(f,function(err,d){
+    if(err){vMsg('😅 '+err.message);return;}
+    if(d<8){vMsg('這段太短了（'+Math.round(d)+' 秒），請選 15 秒以上、阿公一直在講話的檔案');return;}
+    vBlob=f;vMime=f.type||'audio/mp4';vDur=d;
+    $('vTime').textContent=mmss(d);
+    $('vAfter').className='';
+    vMsg('選好了：'+f.name+'（'+mmss(d)+'）'+(d>SAMPLE_MAX?'。比較長，只會用前面 '+SAMPLE_MAX+' 秒':'')+'。先聽聽看，是阿公清楚在講話就按「就用這段」。');
   });
 });
 var polling=false;
